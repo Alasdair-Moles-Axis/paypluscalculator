@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Tungsten ROI">
+    <title>Tungsten Pay+ Payments Optimisation Analysis</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    <!-- Screen Reader Announcements -->
+    <div id="sr-announcements" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <img src="assets/logo.png" alt="Tungsten Pay+" class="app-logo" onerror="this.style.display='none'">
+                <div class="app-header-text">
+                    <h1 class="app-title">Tungsten Pay+ Payments Optimisation Analysis</h1>
+                    <p class="app-subtitle">Analyze your annual transaction savings with Tungsten Pay+</p>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Navigation Tabs -->
+        <nav class="tab-navigation" role="tablist">
+            <button class="tab-button active" role="tab" aria-selected="true" aria-controls="input-panel" id="input-tab" data-tab="input">
+                <span class="tab-label">Inputs</span>
+            </button>
+            <button class="tab-button" role="tab" aria-selected="false" aria-controls="results-panel" id="results-tab" data-tab="results">
+                <span class="tab-label">Results</span>
+            </button>
+        </nav>
+        
+        <!-- Tab Panels -->
+        <main class="tab-content">
+            <!-- Input Panel -->
+            <div class="tab-panel active" role="tabpanel" id="input-panel" aria-labelledby="input-tab">
+                <div class="panel-content">
+                    <h2 class="panel-title">Payment information</h2>
+                    
+                    <!-- Currency Selector -->
+                    <div class="input-section">
+                        <h3 class="section-title">Currency</h3>
+                        <div class="currency-selector">
+                            <label class="currency-option">
+                                <input type="radio" name="currency" value="USD" checked>
+                                <span class="currency-label">
+                                    <span class="currency-symbol">$</span>
+                                    <span class="currency-code">USD</span>
+                                </span>
+                            </label>
+                            <label class="currency-option">
+                                <input type="radio" name="currency" value="GBP">
+                                <span class="currency-label">
+                                    <span class="currency-symbol">£</span>
+                                    <span class="currency-code">GBP</span>
+                                </span>
+                            </label>
+                            <label class="currency-option">
+                                <input type="radio" name="currency" value="EUR">
+                                <span class="currency-label">
+                                    <span class="currency-symbol">€</span>
+                                    <span class="currency-code">EUR</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Total Payment Value -->
+                    <div class="input-section">
+                        <label for="total-payment-value" class="input-label">
+                            Total annual payment value
+                            <span class="help-text">Enter yearly payable value</span>
+                        </label>
+                        <div class="input-wrapper">
+                            <span class="input-prefix currency-symbol">$</span>
+                            <input
+                                type="text"
+                                id="total-payment-value"
+                                class="input-field formatted-number"
+                                placeholder="50,000,000"
+                                value="50,000,000"
+                            />
+                        </div>
+                    </div>
+                    
+                    <!-- Total Payment Count -->
+                    <div class="input-section">
+                        <label for="total-payment-count" class="input-label">
+                            Total volume of payments
+                            <span class="help-text">Enter total number of annual payments</span>
+                        </label>
+                        <div class="input-wrapper">
+                            <input
+                                type="text"
+                                id="total-payment-count"
+                                class="input-field formatted-number"
+                                placeholder="1,100,000"
+                                value="1,100,000"
+                            />
+                        </div>
+                    </div>
+                    
+                    <!-- Auto-calculated Average -->
+                    <div class="calculated-field">
+                        <span class="calculated-label">Average transaction size:</span>
+                        <span class="calculated-value" id="avg-transaction-size">$45.45</span>
+                    </div>
+                    
+                    <!-- Current Provider Fees -->
+                    <div class="input-section">
+                        <h3 class="section-title">Current provider fees</h3>
+                        <p class="section-description">Enter your current payment processing fees</p>
+                        
+                        <div class="fee-grid">
+                            <div class="fee-item">
+                                <label for="current-local-fee" class="fee-label">Local payment fee (per transaction)</label>
+                                <div class="input-wrapper">
+                                    <span class="input-prefix">$</span>
+                                    <input
+                                        type="number"
+                                        id="current-local-fee"
+                                        class="fee-input"
+                                        min="0"
+                                        step="0.01"
+                                        value="1.00"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div class="fee-item">
+                                <label for="current-crossborder-fee" class="fee-label">X-border payment fee (per transaction)</label>
+                                <div class="input-wrapper">
+                                    <span class="input-prefix">$</span>
+                                    <input
+                                        type="number"
+                                        id="current-crossborder-fee"
+                                        class="fee-input"
+                                        min="0"
+                                        step="0.01"
+                                        value="3.50"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div class="fee-item">
+                                <label for="current-card-fee" class="fee-label">Card rebate (%)</label>
+                                <input
+                                    type="number"
+                                    id="current-card-fee"
+                                    class="fee-input"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value="1.00"
+                                />
+                            </div>
+                            
+                            <div class="fee-item">
+                                <label for="current-fx-tier1" class="fee-label">FX margin tier 1 (0-100k) %</label>
+                                <input
+                                    type="number"
+                                    id="current-fx-tier1"
+                                    class="fee-input"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value="0.75"
+                                />
+                            </div>
+                            
+                            <div class="fee-item">
+                                <label for="current-fx-tier2" class="fee-label">FX margin tier 2 (100k-500k) %</label>
+                                <input
+                                    type="number"
+                                    id="current-fx-tier2"
+                                    class="fee-input"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value="0.60"
+                                />
+                            </div>
+                            
+                            <div class="fee-item">
+                                <label for="current-fx-tier3" class="fee-label">FX margin tier 3 (>500k) %</label>
+                                <input
+                                    type="number"
+                                    id="current-fx-tier3"
+                                    class="fee-input"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    value="0.45"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Method Distribution (MOVED HERE) -->
+                    <div class="input-section">
+                        <h3 class="section-title">Payment method split</h3>
+                        <p class="section-description">Split your total payments between rail and card methods</p>
+                        
+                        <div class="distribution-container">
+                            <div class="dual-slider-container">
+                                <div class="dual-slider-labels">
+                                    <div class="slider-label-left">
+                                        <span class="label-text">Bank payments</span>
+                                        <span class="label-percent editable-percent" id="rail-method-percent" data-slider="payment-method-slider" contenteditable="true">90%</span>
+                                        <span class="label-amount currency-value" id="rail-method-amount">$45.0M</span>
+                                    </div>
+                                    <div class="slider-label-right">
+                                        <span class="label-text">Card payments</span>
+                                        <span class="label-percent" id="card-method-percent">10%</span>
+                                        <span class="label-amount currency-value" id="card-method-amount">$5.0M</span>
+                                    </div>
+                                </div>
+                                <div class="slider-container">
+                                    <input
+                                        type="range"
+                                        id="payment-method-slider"
+                                        class="slider dual-color-slider"
+                                        min="0"
+                                        max="100"
+                                        value="90"
+                                        aria-label="Rail payment percentage"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Type Distribution -->
+                    <div class="input-section">
+                        <h3 class="section-title">Payment geography</h3>
+                        <p class="section-description">Now split your RAIL payments between local and cross-border (cards are excluded)</p>
+                        
+                        <div class="distribution-container">
+                            <div class="dual-slider-container">
+                                <div class="dual-slider-labels">
+                                    <div class="slider-label-left">
+                                        <span class="label-text">Local</span>
+                                        <span class="label-percent editable-percent" id="local-type-percent" data-slider="payment-type-slider" contenteditable="true">60%</span>
+                                        <span class="label-amount currency-value" id="local-type-amount">$27.0M</span>
+                                        <span class="label-count" id="local-type-count">594,000 payments</span>
+                                    </div>
+                                    <div class="slider-label-right">
+                                        <span class="label-text">Cross-border</span>
+                                        <span class="label-percent" id="crossborder-type-percent">40%</span>
+                                        <span class="label-amount currency-value" id="crossborder-type-amount">$18.0M</span>
+                                        <span class="label-count" id="crossborder-type-count">396,000 payments</span>
+                                    </div>
+                                </div>
+                                <div class="slider-container">
+                                    <input
+                                        type="range"
+                                        id="payment-type-slider"
+                                        class="slider dual-color-slider"
+                                        min="0"
+                                        max="100"
+                                        value="60"
+                                        aria-label="Local rail payment percentage"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- FX Payments -->
+                    <div class="input-section">
+                        <h3 class="section-title">FX payments</h3>
+                        <p class="section-description">What percentage of your cross-border payments involve foreign exchange?</p>
+                        
+                        <!-- FX Percentage of Cross-Border Slider -->
+                        <div class="distribution-container">
+                            <div class="dual-slider-container">
+                                <div class="dual-slider-labels">
+                                    <div class="slider-label-left">
+                                        <span class="label-text">FX payments</span>
+                                        <span class="label-percent editable-percent" id="fx-share-percent" data-slider="fx-share-slider" contenteditable="true">50%</span>
+                                        <span class="label-amount currency-value" id="fx-calculated-amount">$0</span>
+                                    </div>
+                                    <div class="slider-label-right">
+                                        <span class="label-text">Non-FX cross-border</span>
+                                        <span class="label-percent" id="non-fx-share-percent">50%</span>
+                                    </div>
+                                </div>
+                                <div class="slider-container">
+                                    <input
+                                        type="range"
+                                        id="fx-share-slider"
+                                        class="slider dual-color-slider"
+                                        min="0"
+                                        max="100"
+                                        value="50"
+                                        aria-label="FX percentage of cross-border payments"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- FX Distribution -->
+                    <div class="input-section">
+                        <h3 class="section-title">FX volume distribution by transaction size</h3>
+                        <p class="section-description">Distribute your FX volume across transaction size tiers</p>
+                        
+                        <div class="distribution-container">
+                            <!-- Tier 1: 0-100k -->
+                            <div class="distribution-item">
+                                <div class="distribution-header">
+                                    <label class="distribution-label">Tier 1: $0 - $100k</label>
+                                    <div class="distribution-values">
+                                        <span class="distribution-percent tier1 editable-percent" id="fx-tier1-percent" data-slider="fx-tier1-slider" contenteditable="true">40%</span>
+                                        <span class="distribution-amount" id="fx-tier1-amount">$4,000,000</span>
+                                    </div>
+                                </div>
+                                <div class="slider-container">
+                                    <input 
+                                        type="range" 
+                                        id="fx-tier1-slider"
+                                        class="slider tier1-slider"
+                                        min="0" 
+                                        max="100" 
+                                        value="40"
+                                        aria-label="FX Tier 1 percentage"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <!-- Tier 2: 100k-500k -->
+                            <div class="distribution-item">
+                                <div class="distribution-header">
+                                    <label class="distribution-label">Tier 2: $100k - $500k</label>
+                                    <div class="distribution-values">
+                                        <span class="distribution-percent tier2 editable-percent" id="fx-tier2-percent" data-slider="fx-tier2-slider" contenteditable="true">35%</span>
+                                        <span class="distribution-amount" id="fx-tier2-amount">$3,500,000</span>
+                                    </div>
+                                </div>
+                                <div class="slider-container">
+                                    <input 
+                                        type="range" 
+                                        id="fx-tier2-slider"
+                                        class="slider tier2-slider"
+                                        min="0" 
+                                        max="100" 
+                                        value="35"
+                                        aria-label="FX Tier 2 percentage"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <!-- Tier 3: >500k (NOW EDITABLE) -->
+                            <div class="distribution-item">
+                                <div class="distribution-header">
+                                    <label class="distribution-label">Tier 3: >$500k</label>
+                                    <div class="distribution-values">
+                                        <span class="distribution-percent tier3 editable-percent" id="fx-tier3-percent" data-slider="fx-tier3-slider" contenteditable="true">25%</span>
+                                        <span class="distribution-amount" id="fx-tier3-amount">$2,500,000</span>
+                                    </div>
+                                </div>
+                                <div class="slider-container">
+                                    <input
+                                        type="range"
+                                        id="fx-tier3-slider"
+                                        class="slider tier3-slider"
+                                        min="0"
+                                        max="100"
+                                        value="25"
+                                        aria-label="FX Tier 3 percentage"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tungsten Fee Settings (Collapsible) -->
+                    <div class="settings-section hidden" id="tungsten-settings">
+                        <div class="settings-header" id="settings-toggle">
+                            <h3 class="section-title">Tungsten Pay+ fee settings</h3>
+                            <button class="settings-toggle-btn" aria-expanded="false" aria-controls="settings-content">
+                                <span class="toggle-icon">▼</span>
+                            </button>
+                        </div>
+                        <div class="settings-content" id="settings-content" style="display: none;">
+                            <p class="section-description">Configure Tungsten Pay+ fees for comparison</p>
+                            
+                            <div class="fee-grid">
+                                <div class="fee-item">
+                                    <label for="tungsten-local-fee" class="fee-label">Local Rail Fee ($ per transaction)</label>
+                                    <div class="input-wrapper">
+                                        <span class="input-prefix">$</span>
+                                        <input
+                                            type="number"
+                                            id="tungsten-local-fee"
+                                            class="fee-input"
+                                            min="0"
+                                            step="0.01"
+                                            value="0.50"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div class="fee-item">
+                                    <label for="tungsten-crossborder-fee" class="fee-label">Cross-border fee ($ per transaction)</label>
+                                    <div class="input-wrapper">
+                                        <span class="input-prefix">$</span>
+                                        <input
+                                            type="number"
+                                            id="tungsten-crossborder-fee"
+                                            class="fee-input"
+                                            min="0"
+                                            step="0.01"
+                                            value="2.00"
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div class="fee-item">
+                                    <label for="tungsten-fx-tier1" class="fee-label">FX margin Tier 1 (0-100k) %</label>
+                                    <input
+                                        type="number"
+                                        id="tungsten-fx-tier1"
+                                        class="fee-input"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value="0.50"
+                                    />
+                                </div>
+                                
+                                <div class="fee-item">
+                                    <label for="tungsten-fx-tier2" class="fee-label">FX margin Tier 2 (100k-500k) %</label>
+                                    <input
+                                        type="number"
+                                        id="tungsten-fx-tier2"
+                                        class="fee-input"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value="0.35"
+                                    />
+                                </div>
+                                
+                                <div class="fee-item">
+                                    <label for="tungsten-fx-tier3" class="fee-label">FX margin Tier 3 (>500k) %</label>
+                                    <input
+                                        type="number"
+                                        id="tungsten-fx-tier3"
+                                        class="fee-input"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value="0.20"
+                                    />
+                                </div>
+                                
+                                <div class="fee-item">
+                                    <label for="tungsten-card-fee" class="fee-label">Card rebate (%)</label>
+                                    <input
+                                        type="number"
+                                        id="tungsten-card-fee"
+                                        class="fee-input"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value="1.50"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- Results Panel -->
+            <div class="tab-panel" role="tabpanel" id="results-panel" aria-labelledby="results-tab">
+                <div class="panel-content">
+                    <h2 class="panel-title">Savings Analysis</h2>
+                    
+                    <!-- Summary Cards - Transaction Costs -->
+                    <h3 class="chart-title" style="margin-top: 0;">Transaction costs</h3>
+                    <div class="summary-cards">
+                        <div class="summary-card current secondary-card">
+                            <div class="card-label">Current annual cost</div>
+                            <div class="card-value" id="current-total-cost">$0</div>
+                        </div>
+                        <div class="summary-card tungsten secondary-card">
+                            <div class="card-label">Tungsten annual cost</div>
+                            <div class="card-value" id="tungsten-total-cost">$0</div>
+                        </div>
+                        <div class="summary-card savings primary-card">
+                            <div class="card-label">Cost savings</div>
+                            <div class="card-value" id="cost-savings">$0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary Cards - Card Incentives -->
+                    <h3 class="chart-title">Card incentives</h3>
+                    <div class="summary-cards">
+                        <div class="summary-card current secondary-card">
+                            <div class="card-label">Current card rebate</div>
+                            <div class="card-value" id="current-incentive">$0</div>
+                        </div>
+                        <div class="summary-card tungsten secondary-card">
+                            <div class="card-label">Tungsten card rebate</div>
+                            <div class="card-value" id="tungsten-incentive">$0</div>
+                        </div>
+                        <div class="summary-card savings primary-card">
+                            <div class="card-label">Incentive differential</div>
+                            <div class="card-value" id="incentive-differential">$0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Total Annual Benefit -->
+                    <h3 class="chart-title">Total annual benefit</h3>
+                    <div class="summary-cards">
+                        <div class="summary-card savings primary-card" style="grid-column: 1 / -1;">
+                            <div class="card-label">Total annual benefit</div>
+                            <div class="card-value" id="total-benefit">$0</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Savings Breakdown Chart (Moved first) -->
+                    <div class="chart-section">
+                        <h3 class="chart-title">Where you save most</h3>
+                        <div class="chart-container">
+                            <canvas id="savings-breakdown-chart"></canvas>
+                        </div>
+                        <p style="font-size: 11px; color: #6B7280; font-style: italic; margin-top: 8px; margin-left: 4px;">* Card rebates represent benefit increases, not cost savings</p>
+                    </div>
+                    
+                    <!-- Cost Comparison Chart -->
+                    <div class="chart-section">
+                        <h3 class="chart-title">Your savings by payment method</h3>
+                        <div class="chart-container">
+                            <canvas id="cost-comparison-chart"></canvas>
+                        </div>
+                        <p style="font-size: 11px; color: #6B7280; font-style: italic; margin-top: 8px; margin-left: 4px;">* Card rebates represent benefit increases, not cost savings</p>
+                    </div>
+                    
+                    <!-- Cost Distribution Charts -->
+                    <div class="chart-section">
+                        <h3 class="chart-title">Cost distribution</h3>
+                        <div class="chart-grid">
+                            <div class="chart-container">
+                                <h4 class="chart-subtitle">Current provider</h4>
+                                <canvas id="current-distribution-chart"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <h4 class="chart-subtitle">Tungsten Pay+</h4>
+                                <canvas id="tungsten-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+        
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <button class="action-button secondary" id="save-btn">
+                <span class="button-label">Save</span>
+            </button>
+            <button class="action-button secondary" id="load-btn">
+                <span class="button-label">Load</span>
+            </button>
+            <button class="action-button primary" id="export-pdf-btn">
+                <span class="button-label">Export PDF</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Calculating...</div>
+    </div>
+    
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+    
+    
+    <!-- Scripts -->
+    <script src="js/config.js?v=20"></script>
+    <script src="js/calculator.js?v=20"></script>
+    <script src="js/storage.js?v=20"></script>
+    <script src="js/charts.js?v=20"></script>
+    <script src="js/pdf-export.js?v=20"></script>
+    <script src="js/app.js?v=20"></script>
+</body>
+</html>
