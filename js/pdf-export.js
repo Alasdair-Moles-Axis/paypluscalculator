@@ -140,11 +140,11 @@ class PDFExporter {
         // Pay+ logo (top right)
         if (payPlusLogo) {
             const logoWidth = 30;
-            const logoHeight = 12;
+            const logoHeight = 30;
             const logoX = this.pageWidth - this.margin - logoWidth;
             const logoY = yPosition - 2;
             try {
-                doc.addImage(payPlusLogo, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+                doc.addImage(payPlusLogo, 'PNG', logoX, logoY, logoWidth, logoHeight);
             } catch (e) {
                 console.warn('Could not add Pay+ logo to PDF:', e);
             }
@@ -594,4 +594,5 @@ class PDFExporter {
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = PDFExporter;
+
 }
