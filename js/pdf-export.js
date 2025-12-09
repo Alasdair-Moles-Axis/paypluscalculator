@@ -69,16 +69,14 @@ class PDFExporter {
             const doc = new jsPDF('p', 'mm', 'a4');
 
             // Load logos - try config first, then load from files
-            let payPlusLogo = (typeof CONFIG !== 'undefined' && CONFIG.pdfLogos) ? CONFIG.pdfLogos.payPlusLogo : null;
+            let payPlusLogo = null;
             let tungstenLogo = (typeof CONFIG !== 'undefined' && CONFIG.pdfLogos) ? CONFIG.pdfLogos.tungstenLogo : null;
             
             // If not in config, load from file paths
             if (!tungstenLogo) {
                 tungstenLogo = await this.loadImageAsBase64('assets/tungsten_logo.jpg');
             }
-            if (!payPlusLogo) {
-                payPlusLogo = await this.loadImageAsBase64('assets/logo.png');
-            }
+    
             
             console.log('Pay+ logo loaded:', payPlusLogo ? 'yes' : 'no');
             console.log('Tungsten logo loaded:', tungstenLogo ? 'yes' : 'no');
@@ -136,19 +134,6 @@ class PDFExporter {
         doc.setTextColor(...this.colors.mediumGray);
         doc.setFont(undefined, 'normal');
         doc.text(pdfText.subtitle || 'Payments optimisation analysis', this.margin, yPosition + 5);
-        
-        // Pay+ logo (top right)
-        if (payPlusLogo) {
-            const logoWidth = 30;
-            const logoHeight = 30;
-            const logoX = this.pageWidth - this.margin - logoWidth;
-            const logoY = yPosition - 2;
-            try {
-                doc.addImage(payPlusLogo, 'PNG', logoX, logoY, logoWidth, logoHeight);
-            } catch (e) {
-                console.warn('Could not add Pay+ logo to PDF:', e);
-            }
-        }
         
         // Date (below logo if present, otherwise top right)
         doc.setFontSize(8);
@@ -596,3 +581,4 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = PDFExporter;
 
 }
+
