@@ -213,7 +213,7 @@ class PDFExporter {
         doc.text(`${labels.currency || 'Base currency'}: ${data.currency}`, leftCol, leftY);
         leftY += lineHeight;
         
-        doc.text(`${labels.totalPaymentVolume || 'Total payment volume (yearly)'}: ${FormatUtils.formatCurrency(data.totalPaymentValue, 0, results.currencySymbol)}`, leftCol, leftY);
+        doc.text(`${labels.totalPaymentVolume || 'Total payment volume (yearly)'}: ${FormatUtils.formatCurrency(data.totalPaymentValue, 0, results.currencySymbol, true)}`, leftCol, leftY);
         leftY += lineHeight;
         
         doc.text(`${labels.annualPayments || 'Annual payments amount (yearly)'}: ${FormatUtils.formatNumber(data.totalPaymentCount, 0)}`, leftCol, leftY);
@@ -260,12 +260,12 @@ class PDFExporter {
         doc.setFont(undefined, 'bold');
         doc.setFontSize(12);
         doc.setTextColor(...this.colors.black);
-        doc.text(`${labels.currentAnnualCost || '> Current Annual Cost'}: ${FormatUtils.formatCurrency(results.costs.current, 0, results.currencySymbol)}`, this.margin, yPosition);
+        doc.text(`${labels.currentAnnualCost || '> Current Annual Cost'}: ${FormatUtils.formatCurrency(results.costs.current, 0, results.currencySymbol, true)}`, this.margin, yPosition);
         yPosition += lineHeight;
         
         // Tungsten Annual Cost (BOLD) - full width
         doc.setTextColor(...this.colors.primary);
-        doc.text(`${labels.tungstenAnnualCost || '> Tungsten Annual Cost'}: ${FormatUtils.formatCurrency(results.costs.tungsten, 0, results.currencySymbol)}`, this.margin, yPosition);
+        doc.text(`${labels.tungstenAnnualCost || '> Tungsten Annual Cost'}: ${FormatUtils.formatCurrency(results.costs.tungsten, 0, results.currencySymbol, true)}`, this.margin, yPosition);
         yPosition += 10;
 
         return yPosition;
@@ -374,10 +374,10 @@ class PDFExporter {
             doc.text(row.type, xPos + 2, yPosition + 4.5);
             xPos += colWidths[0];
             
-            doc.text(FormatUtils.formatCurrency(row.current, 0, results.currencySymbol), xPos + 2, yPosition + 4.5);
+            doc.text(FormatUtils.formatCurrency(row.current, 0, results.currencySymbol, true), xPos + 2, yPosition + 4.5);
             xPos += colWidths[1];
             
-            doc.text(FormatUtils.formatCurrency(row.tungsten, 0, results.currencySymbol), xPos + 2, yPosition + 4.5);
+            doc.text(FormatUtils.formatCurrency(row.tungsten, 0, results.currencySymbol, true), xPos + 2, yPosition + 4.5);
             xPos += colWidths[2];
             
             const percentSaved = row.current > 0 ? ((row.savings / row.current) * 100) : 0;
@@ -404,10 +404,10 @@ class PDFExporter {
         doc.text('TOTAL COSTS', xPos + 2, yPosition + 4.5);
         xPos += colWidths[0];
         
-        doc.text(FormatUtils.formatCurrency(results.costs.current, 0, results.currencySymbol), xPos + 2, yPosition + 4.5);
+        doc.text(FormatUtils.formatCurrency(results.costs.current, 0, results.currencySymbol, true), xPos + 2, yPosition + 4.5);
         xPos += colWidths[1];
         
-        doc.text(FormatUtils.formatCurrency(results.costs.tungsten, 0, results.currencySymbol), xPos + 2, yPosition + 4.5);
+        doc.text(FormatUtils.formatCurrency(results.costs.tungsten, 0, results.currencySymbol, true), xPos + 2, yPosition + 4.5);
         xPos += colWidths[2];
         
         doc.text(FormatUtils.formatPercent(results.costs.savingsPercentage, 1), xPos + 2, yPosition + 4.5);
@@ -448,10 +448,10 @@ class PDFExporter {
         doc.text('Card rebates', xPos + 2, yPosition + 4.5);
         xPos += colWidths[0];
         
-        doc.text(FormatUtils.formatCurrency(results.incentives.current, 0, results.currencySymbol), xPos + 2, yPosition + 4.5);
+        doc.text(FormatUtils.formatCurrency(results.incentives.current, 0, results.currencySymbol, true), xPos + 2, yPosition + 4.5);
         xPos += colWidths[1];
         
-        doc.text(FormatUtils.formatCurrency(results.incentives.tungsten, 0, results.currencySymbol), xPos + 2, yPosition + 4.5);
+        doc.text(FormatUtils.formatCurrency(results.incentives.tungsten, 0, results.currencySymbol, true), xPos + 2, yPosition + 4.5);
         xPos += colWidths[2];
         
         doc.setTextColor(...this.colors.primary);
@@ -486,17 +486,41 @@ class PDFExporter {
         
         doc.setFontSize(20);
         doc.setFont(undefined, 'bold');
-        doc.text(FormatUtils.formatCurrency(results.totalAnnualBenefit, 0, results.currencySymbol),
+        doc.text(FormatUtils.formatCurrency(results.totalAnnualBenefit, 0, results.currencySymbol, true),
                  this.margin + 4, yPosition + 15);
 
         // Breakdown
         doc.setFontSize(10);
         doc.setFont(undefined, 'normal');
-        const costSavings = FormatUtils.formatCurrency(results.costs.savings.total, 0, results.currencySymbol);
-        const incentiveDiff = FormatUtils.formatCurrency(results.incentives.differential, 0, results.currencySymbol);
+        const costSavings = FormatUtils.formatCurrency(results.costs.savings.total, 0, results.currencySymbol, true);
+        const incentiveDiff = FormatUtils.formatCurrency(results.incentives.differential, 0, results.currencySymbol, true);
         doc.text(`Cost savings: ${costSavings} + Incentive differential: ${incentiveDiff}`, this.margin + 4, yPosition + 20);
 
         yPosition += boxHeight + 10;
+        
+        // FREED WORKING CAPITAL BOX
+        doc.setFontSize(12);
+        doc.setTextColor(...this.colors.black);
+        doc.setFont(undefined, 'bold');
+        doc.text('Potential freed working capital', this.margin, yPosition);
+        yPosition += 6;
+
+        // Box with explanation
+        const fwcBoxHeight = 18;
+        doc.setFillColor(...this.colors.mediumGray);
+        doc.roundedRect(this.margin, yPosition, this.contentWidth, fwcBoxHeight, 2, 2, 'F');
+
+        doc.setTextColor(...this.colors.white);
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.text('Card spend provides 30-day credit terms', this.margin + 4, yPosition + 6);
+
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text(FormatUtils.formatCurrency(results.freedWorkingCapital, 0, results.currencySymbol, true),
+                 this.margin + 4, yPosition + 14);
+
+        yPosition += fwcBoxHeight + 10;
         return yPosition;
     }
 

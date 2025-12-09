@@ -90,7 +90,7 @@ class TungstenROIApp {
     }
 
     /**
-     * Setup triple-click logo toggle for Tungsten settings
+     * Setup password-protected logo toggle for Tungsten settings
      */
     setupLogoToggle() {
         const logo = document.querySelector('.app-logo');
@@ -119,17 +119,26 @@ class TungstenROIApp {
                 clickCount = 0;
                 clearTimeout(clickTimer);
                 
-                // Toggle settings visibility
+                // Check if already visible
                 const isHidden = settingsSection.classList.contains('hidden');
                 
                 if (isHidden) {
-                    settingsSection.classList.remove('hidden');
-                    settingsSection.classList.add('visible');
-                    this.showToast('Tungsten fee settings unlocked', 'success');
+                    // Prompt for password
+                    const password = prompt('Enter admin password:');
                     
-                    // Save state to localStorage
-                    localStorage.setItem('tungstenSettingsVisible', 'true');
+                    if (password === 'projectgold') {
+                        settingsSection.classList.remove('hidden');
+                        settingsSection.classList.add('visible');
+                        this.showToast('Tungsten fee settings unlocked', 'success');
+                        
+                        // Save state to localStorage
+                        localStorage.setItem('tungstenSettingsVisible', 'true');
+                    } else if (password !== null) {
+                        // User entered wrong password (not cancelled)
+                        this.showToast('Incorrect password', 'error');
+                    }
                 } else {
+                    // Hide settings (no password needed to hide)
                     settingsSection.classList.add('hidden');
                     settingsSection.classList.remove('visible');
                     this.showToast('Tungsten fee settings hidden', 'success');
@@ -754,25 +763,29 @@ class TungstenROIApp {
     updateSummaryCards(results) {
         const symbol = results.currencySymbol;
         
-        // SECTION 1: Transaction costs
+        // SECTION 1: Transaction costs (with commas)
         document.getElementById('current-total-cost').textContent =
-            FormatUtils.formatCurrency(results.costs.current, 0, symbol);
+            FormatUtils.formatCurrency(results.costs.current, 0, symbol, true);
         document.getElementById('tungsten-total-cost').textContent =
-            FormatUtils.formatCurrency(results.costs.tungsten, 0, symbol);
+            FormatUtils.formatCurrency(results.costs.tungsten, 0, symbol, true);
         document.getElementById('cost-savings').textContent =
-            FormatUtils.formatCurrency(results.costs.savings.total, 0, symbol);
+            FormatUtils.formatCurrency(results.costs.savings.total, 0, symbol, true);
         
-        // SECTION 2: Card incentives
+        // SECTION 2: Card incentives (with commas)
         document.getElementById('current-incentive').textContent =
-            FormatUtils.formatCurrency(results.incentives.current, 0, symbol);
+            FormatUtils.formatCurrency(results.incentives.current, 0, symbol, true);
         document.getElementById('tungsten-incentive').textContent =
-            FormatUtils.formatCurrency(results.incentives.tungsten, 0, symbol);
+            FormatUtils.formatCurrency(results.incentives.tungsten, 0, symbol, true);
         document.getElementById('incentive-differential').textContent =
-            FormatUtils.formatCurrency(results.incentives.differential, 0, symbol);
+            FormatUtils.formatCurrency(results.incentives.differential, 0, symbol, true);
         
-        // SECTION 3: Total annual benefit
+        // SECTION 3: Total annual benefit (with commas)
         document.getElementById('total-benefit').textContent =
-            FormatUtils.formatCurrency(results.totalAnnualBenefit, 0, symbol);
+            FormatUtils.formatCurrency(results.totalAnnualBenefit, 0, symbol, true);
+        
+        // SECTION 4: Freed working capital (with commas)
+        document.getElementById('freed-working-capital').textContent =
+            FormatUtils.formatCurrency(results.freedWorkingCapital, 0, symbol, true);
     }
 
     /**

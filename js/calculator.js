@@ -320,6 +320,15 @@ class ROICalculator {
     }
 
     /**
+     * Calculate freed working capital from card payments
+     * Card payments provide 30-day credit terms, freeing up working capital
+     */
+    calculateFreedWorkingCapital() {
+        const breakdown = this.calculatePaymentBreakdown();
+        return breakdown.method.card.value; // Card volume = freed capital
+    }
+
+    /**
      * Get complete results
      */
     getResults() {
@@ -327,6 +336,7 @@ class ROICalculator {
         const fxVolumes = this.calculateFXVolumes();
         const savingsData = this.calculateSavings();
         const avgTransactionSize = this.calculateAverageTransactionSize();
+        const freedWorkingCapital = this.calculateFreedWorkingCapital();
 
         return {
             breakdown: breakdown,
@@ -336,6 +346,7 @@ class ROICalculator {
             costs: savingsData.costs,
             incentives: savingsData.incentives,
             totalAnnualBenefit: savingsData.totalAnnualBenefit,
+            freedWorkingCapital: freedWorkingCapital,
             // Keep detailed data for charts
             detailedCosts: {
                 current: savingsData.currentCosts,
@@ -448,9 +459,9 @@ const FormatUtils = {
     },
 
     /**
-     * Format currency
+     * Format currency - supports both abbreviated (K/M/B) and comma-separated formats
      */
-    formatCurrency(value, decimals = 0, symbol = '$') {
+    formatCurrency(value, decimals = 0, symbol = '$', useCommas = false) {
         if (value === null || value === undefined || isNaN(value)) {
             return `${symbol}0`;
         }
@@ -458,14 +469,24 @@ const FormatUtils = {
         const absValue = Math.abs(value);
         const sign = value < 0 ? '-' : '';
         
-        if (absValue >= 1000000000) {
-            return `${sign}${symbol}${(absValue / 1000000000).toFixed(2)}B`;
-        } else if (absValue >= 1000000) {
-            return `${sign}${symbol}${(absValue / 1000000).toFixed(2)}M`;
-        } else if (absValue >= 1000) {
-            return `${sign}${symbol}${(absValue / 1000).toFixed(2)}K`;
+        if (useCommas) {
+            // American style with commas
+            const formatted = absValue.toLocaleString('en-US', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            });
+            return `${sign}${symbol}${formatted}`;
         } else {
-            return `${sign}${symbol}${absValue.toFixed(decimals)}`;
+            // Abbreviated format (K, M, B)
+            if (absValue >= 1000000000) {
+                return `${sign}${symbol}${(absValue / 1000000000).toFixed(2)}B`;
+            } else if (absValue >= 1000000) {
+                return `${sign}${symbol}${(absValue / 1000000).toFixed(2)}M`;
+            } else if (absValue >= 1000) {
+                return `${sign}${symbol}${(absValue / 1000).toFixed(2)}K`;
+            } else {
+                return `${sign}${symbol}${absValue.toFixed(decimals)}`;
+            }
         }
     },
 
