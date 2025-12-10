@@ -258,8 +258,8 @@
                     
                     <!-- Card Rebate Configuration -->
                     <div class="input-section">
-                        <h3 class="section-title">Card rebate rates</h3>
-                        <p class="section-description">Configure card rebate percentages for current and Tungsten providers</p>
+                        <h3 class="section-title">Card rebate rate</h3>
+                        <p class="section-description">Configure your current provider's card rebate percentage</p>
                         
                         <div class="distribution-container">
                             <!-- Current Provider Card Rebate -->
@@ -280,28 +280,6 @@
                                         step="0.1"
                                         value="1.0"
                                         aria-label="Current provider card rebate percentage"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <!-- Tungsten Provider Card Rebate -->
-                            <div class="distribution-item">
-                                <div class="distribution-header">
-                                    <label class="distribution-label">Tungsten card rebate</label>
-                                    <div class="distribution-values">
-                                        <span class="distribution-percent editable-percent" id="tungsten-card-rebate-percent" data-slider="tungsten-card-rebate-slider" contenteditable="true">1.5%</span>
-                                    </div>
-                                </div>
-                                <div class="slider-container">
-                                    <input
-                                        type="range"
-                                        id="tungsten-card-rebate-slider"
-                                        class="slider"
-                                        min="0"
-                                        max="5"
-                                        step="0.1"
-                                        value="1.5"
-                                        aria-label="Tungsten card rebate percentage"
                                     />
                                 </div>
                             </div>
@@ -530,6 +508,19 @@
                                         max="100"
                                         step="0.01"
                                         value="0.20"
+                                    />
+                                </div>
+                                
+                                <div class="fee-item">
+                                    <label for="tungsten-card-rebate" class="fee-label">Card rebate %</label>
+                                    <input
+                                        type="number"
+                                        id="tungsten-card-rebate"
+                                        class="fee-input"
+                                        min="0"
+                                        max="5"
+                                        step="0.1"
+                                        value="1.5"
                                     />
                                 </div>
                             </div>
