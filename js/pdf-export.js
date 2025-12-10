@@ -508,8 +508,8 @@ class PDFExporter {
         doc.text('Potential freed working capital', this.margin, yPosition);
         yPosition += 6;
 
-        // Three-column layout for freed capital metrics
-        const colWidth = this.contentWidth / 3;
+        // Two-column layout for freed capital metrics
+        const colWidth = this.contentWidth / 2;
         const fwcBoxHeight = 18;
         
         // Box 1: Freed Working Capital
@@ -526,30 +526,18 @@ class PDFExporter {
         doc.text(FormatUtils.formatCurrency(results.freedWorkingCapital, 0, results.currencySymbol, true),
                  this.margin + 3, yPosition + 13);
         
-        // Box 2: WACC Rate
-        doc.setFillColor(...this.colors.mediumGray);
+        // Box 2: Annual Value
+        doc.setFillColor(...this.colors.primary);
         doc.roundedRect(this.margin + colWidth, yPosition, colWidth - 2, fwcBoxHeight, 2, 2, 'F');
         
         doc.setFontSize(8);
         doc.setFont(undefined, 'normal');
-        doc.text('WACC rate', this.margin + colWidth + 3, yPosition + 5);
-        
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text(FormatUtils.formatPercent(results.wacc, 1), this.margin + colWidth + 3, yPosition + 13);
-        
-        // Box 3: Annual Value
-        doc.setFillColor(...this.colors.primary);
-        doc.roundedRect(this.margin + (colWidth * 2), yPosition, colWidth - 2, fwcBoxHeight, 2, 2, 'F');
-        
-        doc.setFontSize(8);
-        doc.setFont(undefined, 'normal');
-        doc.text('Annual value of freed capital', this.margin + (colWidth * 2) + 3, yPosition + 5);
+        doc.text('Annual value of freed capital', this.margin + colWidth + 3, yPosition + 5);
         
         doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.text(FormatUtils.formatCurrency(results.waccValue, 0, results.currencySymbol, true),
-                 this.margin + (colWidth * 2) + 3, yPosition + 13);
+                 this.margin + colWidth + 3, yPosition + 13);
 
         yPosition += fwcBoxHeight + 10;
         return yPosition;

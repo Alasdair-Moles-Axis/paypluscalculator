@@ -800,10 +800,6 @@ class TungstenROIApp {
         document.getElementById('freed-working-capital').textContent =
             FormatUtils.formatCurrency(results.freedWorkingCapital, 0, symbol, true);
         
-        // WACC rate display
-        document.getElementById('wacc-rate-display').textContent =
-            FormatUtils.formatPercent(results.wacc, 1);
-        
         // Annual value of freed capital (WACC calculation)
         document.getElementById('wacc-value').textContent =
             FormatUtils.formatCurrency(results.waccValue, 0, symbol, true);
