@@ -338,6 +338,28 @@ class TungstenROIApp {
                 this.debouncedCalculate();
             });
         }
+        
+        // Current card rebate slider
+        const currentCardRebateSlider = document.getElementById('current-card-rebate-slider');
+        if (currentCardRebateSlider) {
+            currentCardRebateSlider.addEventListener('input', (e) => {
+                const rebate = Math.round(parseFloat(e.target.value) * 10) / 10;
+                this.calculator.updateFee('currentProvider', 'cardRebate', rebate);
+                this.updateCardRebateDisplay();
+                this.debouncedCalculate();
+            });
+        }
+
+        // Tungsten card rebate slider
+        const tungstenCardRebateSlider = document.getElementById('tungsten-card-rebate-slider');
+        if (tungstenCardRebateSlider) {
+            tungstenCardRebateSlider.addEventListener('input', (e) => {
+                const rebate = Math.round(parseFloat(e.target.value) * 10) / 10;
+                this.calculator.updateFee('tungsten', 'cardRebate', rebate);
+                this.updateCardRebateDisplay();
+                this.debouncedCalculate();
+            });
+        }
     }
 
     /**
@@ -350,8 +372,7 @@ class TungstenROIApp {
             'tungsten-crossborder-fee',
             'tungsten-fx-tier1',
             'tungsten-fx-tier2',
-            'tungsten-fx-tier3',
-            'tungsten-card-fee'
+            'tungsten-fx-tier3'
         ];
 
         const tungstenFeeFields = {
@@ -359,8 +380,7 @@ class TungstenROIApp {
             'tungsten-crossborder-fee': 'crossBorder',
             'tungsten-fx-tier1': 'fxMargins.tier1',
             'tungsten-fx-tier2': 'fxMargins.tier2',
-            'tungsten-fx-tier3': 'fxMargins.tier3',
-            'tungsten-card-fee': 'cardRebate'
+            'tungsten-fx-tier3': 'fxMargins.tier3'
         };
 
         tungstenFeeIds.forEach(id => {
@@ -379,8 +399,7 @@ class TungstenROIApp {
             'current-crossborder-fee',
             'current-fx-tier1',
             'current-fx-tier2',
-            'current-fx-tier3',
-            'current-card-fee'
+            'current-fx-tier3'
         ];
 
         const currentFeeFields = {
@@ -388,8 +407,7 @@ class TungstenROIApp {
             'current-crossborder-fee': 'crossBorder',
             'current-fx-tier1': 'fxMargins.tier1',
             'current-fx-tier2': 'fxMargins.tier2',
-            'current-fx-tier3': 'fxMargins.tier3',
-            'current-card-fee': 'cardRebate'
+            'current-fx-tier3': 'fxMargins.tier3'
         };
 
         currentFeeIds.forEach(id => {
@@ -575,7 +593,6 @@ class TungstenROIApp {
         document.getElementById('tungsten-fx-tier1').value = data.fees.tungsten.fxMargins.tier1;
         document.getElementById('tungsten-fx-tier2').value = data.fees.tungsten.fxMargins.tier2;
         document.getElementById('tungsten-fx-tier3').value = data.fees.tungsten.fxMargins.tier3;
-        document.getElementById('tungsten-card-fee').value = data.fees.tungsten.cardRebate;
         
         // Current provider fees
         document.getElementById('current-local-fee').value = data.fees.currentProvider.localRailFee;
@@ -583,7 +600,13 @@ class TungstenROIApp {
         document.getElementById('current-fx-tier1').value = data.fees.currentProvider.fxMargins.tier1;
         document.getElementById('current-fx-tier2').value = data.fees.currentProvider.fxMargins.tier2;
         document.getElementById('current-fx-tier3').value = data.fees.currentProvider.fxMargins.tier3;
-        document.getElementById('current-card-fee').value = data.fees.currentProvider.cardRebate;
+        
+        // Card rebate sliders
+        const currentCardRebateSlider = document.getElementById('current-card-rebate-slider');
+        if (currentCardRebateSlider) currentCardRebateSlider.value = data.fees.currentProvider.cardRebate;
+        
+        const tungstenCardRebateSlider = document.getElementById('tungsten-card-rebate-slider');
+        if (tungstenCardRebateSlider) tungstenCardRebateSlider.value = data.fees.tungsten.cardRebate;
         
         // Currency selector
         const currencyRadios = document.querySelectorAll('input[name="currency"]');
@@ -597,7 +620,39 @@ class TungstenROIApp {
         this.updatePaymentMethodDisplay();
         this.updateFXDistribution();
         this.updateFXShareDisplay();
+        this.updateCardRebateDisplay();
         this.updateAllCurrencySymbols();
+    }
+
+    /**
+     * Update card rebate display
+     */
+    updateCardRebateDisplay() {
+        const currentRebate = this.calculator.data.fees.currentProvider.cardRebate;
+        const tungstenRebate = this.calculator.data.fees.tungsten.cardRebate;
+        
+        const currentPercentEl = document.getElementById('current-card-rebate-percent');
+        if (currentPercentEl) {
+            currentPercentEl.textContent = FormatUtils.formatPercent(currentRebate, 1);
+        }
+        
+        const tungstenPercentEl = document.getElementById('tungsten-card-rebate-percent');
+        if (tungstenPercentEl) {
+            tungstenPercentEl.textContent = FormatUtils.formatPercent(tungstenRebate, 1);
+        }
+        
+        // Update slider gradients
+        const currentSlider = document.getElementById('current-card-rebate-slider');
+        if (currentSlider) {
+            const percent = (currentRebate / 5) * 100; // 5 is max value
+            currentSlider.style.background = `linear-gradient(to right, var(--tungsten-primary) 0%, var(--tungsten-primary) ${percent}%, var(--gray-300) ${percent}%, var(--gray-300) 100%)`;
+        }
+        
+        const tungstenSlider = document.getElementById('tungsten-card-rebate-slider');
+        if (tungstenSlider) {
+            const percent = (tungstenRebate / 5) * 100; // 5 is max value
+            tungstenSlider.style.background = `linear-gradient(to right, var(--tungsten-primary) 0%, var(--tungsten-primary) ${percent}%, var(--gray-300) ${percent}%, var(--gray-300) 100%)`;
+        }
     }
 
     /**
@@ -1046,6 +1101,12 @@ class TungstenROIApp {
             this.calculator.adjustFXTiers(3, value);
             this.updateFXDistribution();
             this.updateFXSliderValues();
+        } else if (sliderId === 'current-card-rebate-slider') {
+            this.calculator.updateFee('currentProvider', 'cardRebate', value);
+            this.updateCardRebateDisplay();
+        } else if (sliderId === 'tungsten-card-rebate-slider') {
+            this.calculator.updateFee('tungsten', 'cardRebate', value);
+            this.updateCardRebateDisplay();
         }
         
         // Recalculate
