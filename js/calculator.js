@@ -41,7 +41,10 @@ class ROICalculator {
                         tier2Percent: 35,
                         tier3Percent: 25
                     }
-                }
+                },
+                
+                // WACC (Weighted Average Cost of Capital) as percentage
+                wacc: 8.0
             },
             fees: {
                 tungsten: {
@@ -329,6 +332,16 @@ class ROICalculator {
     }
 
     /**
+     * Calculate annual value of freed working capital using WACC
+     * Formula: Freed Capital × WACC%
+     */
+    calculateWACCValue() {
+        const freedCapital = this.calculateFreedWorkingCapital();
+        const wacc = this.data.customerInfo.wacc || 0;
+        return freedCapital * (wacc / 100);
+    }
+
+    /**
      * Get complete results
      */
     getResults() {
@@ -337,6 +350,7 @@ class ROICalculator {
         const savingsData = this.calculateSavings();
         const avgTransactionSize = this.calculateAverageTransactionSize();
         const freedWorkingCapital = this.calculateFreedWorkingCapital();
+        const waccValue = this.calculateWACCValue();
 
         return {
             breakdown: breakdown,
@@ -347,6 +361,8 @@ class ROICalculator {
             incentives: savingsData.incentives,
             totalAnnualBenefit: savingsData.totalAnnualBenefit,
             freedWorkingCapital: freedWorkingCapital,
+            waccValue: waccValue,
+            wacc: this.data.customerInfo.wacc,
             // Keep detailed data for charts
             detailedCosts: {
                 current: savingsData.currentCosts,

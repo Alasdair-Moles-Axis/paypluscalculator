@@ -243,6 +243,15 @@ class TungstenROIApp {
         }
 
 
+        // WACC input
+        const waccInput = document.getElementById('wacc-input');
+        if (waccInput) {
+            waccInput.addEventListener('input', (e) => {
+                this.calculator.updateCustomerInfo('wacc', e.target.value);
+                this.debouncedCalculate();
+            });
+        }
+
         // Currency selector
         const currencyRadios = document.querySelectorAll('input[name="currency"]');
         currencyRadios.forEach(radio => {
@@ -535,6 +544,10 @@ class TungstenROIApp {
         
         const implCostEl = document.getElementById('implementation-cost');
         if (implCostEl) implCostEl.value = FormatUtils.formatNumberWithCommas(data.customerInfo.implementationCost);
+        
+        // WACC input
+        const waccInput = document.getElementById('wacc-input');
+        if (waccInput) waccInput.value = data.customerInfo.wacc || 8.0;
 
         // Sliders
         const paymentTypeSlider = document.getElementById('payment-type-slider');
@@ -786,6 +799,14 @@ class TungstenROIApp {
         // SECTION 4: Freed working capital (with commas)
         document.getElementById('freed-working-capital').textContent =
             FormatUtils.formatCurrency(results.freedWorkingCapital, 0, symbol, true);
+        
+        // WACC rate display
+        document.getElementById('wacc-rate-display').textContent =
+            FormatUtils.formatPercent(results.wacc, 1);
+        
+        // Annual value of freed capital (WACC calculation)
+        document.getElementById('wacc-value').textContent =
+            FormatUtils.formatCurrency(results.waccValue, 0, symbol, true);
     }
 
     /**

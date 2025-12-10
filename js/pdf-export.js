@@ -253,6 +253,9 @@ class PDFExporter {
         doc.text(`${labels.currentCardRebate || 'Current card rebate'}: ${results.data.fees.currentProvider.cardRebate}%`, rightCol, rightY);
         rightY += lineHeight;
         
+        doc.text(`${labels.wacc || 'WACC'}: ${results.wacc}%`, rightCol, rightY);
+        rightY += lineHeight;
+        
         // Use the maximum Y position from both columns
         yPosition = Math.max(leftY, rightY) + 2;
         
@@ -498,27 +501,55 @@ class PDFExporter {
 
         yPosition += boxHeight + 10;
         
-        // FREED WORKING CAPITAL BOX
+        // FREED WORKING CAPITAL SECTION
         doc.setFontSize(12);
         doc.setTextColor(...this.colors.black);
         doc.setFont(undefined, 'bold');
         doc.text('Potential freed working capital', this.margin, yPosition);
         yPosition += 6;
 
-        // Box with explanation
+        // Three-column layout for freed capital metrics
+        const colWidth = this.contentWidth / 3;
         const fwcBoxHeight = 18;
+        
+        // Box 1: Freed Working Capital
         doc.setFillColor(...this.colors.mediumGray);
-        doc.roundedRect(this.margin, yPosition, this.contentWidth, fwcBoxHeight, 2, 2, 'F');
-
+        doc.roundedRect(this.margin, yPosition, colWidth - 2, fwcBoxHeight, 2, 2, 'F');
+        
         doc.setTextColor(...this.colors.white);
-        doc.setFontSize(9);
+        doc.setFontSize(8);
         doc.setFont(undefined, 'normal');
-        doc.text('Card spend provides 30-day credit terms', this.margin + 4, yPosition + 6);
-
-        doc.setFontSize(16);
+        doc.text('Freed capital (30-day terms)', this.margin + 3, yPosition + 5);
+        
+        doc.setFontSize(12);
         doc.setFont(undefined, 'bold');
         doc.text(FormatUtils.formatCurrency(results.freedWorkingCapital, 0, results.currencySymbol, true),
-                 this.margin + 4, yPosition + 14);
+                 this.margin + 3, yPosition + 13);
+        
+        // Box 2: WACC Rate
+        doc.setFillColor(...this.colors.mediumGray);
+        doc.roundedRect(this.margin + colWidth, yPosition, colWidth - 2, fwcBoxHeight, 2, 2, 'F');
+        
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.text('WACC rate', this.margin + colWidth + 3, yPosition + 5);
+        
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(FormatUtils.formatPercent(results.wacc, 1), this.margin + colWidth + 3, yPosition + 13);
+        
+        // Box 3: Annual Value
+        doc.setFillColor(...this.colors.primary);
+        doc.roundedRect(this.margin + (colWidth * 2), yPosition, colWidth - 2, fwcBoxHeight, 2, 2, 'F');
+        
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        doc.text('Annual value of freed capital', this.margin + (colWidth * 2) + 3, yPosition + 5);
+        
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(FormatUtils.formatCurrency(results.waccValue, 0, results.currencySymbol, true),
+                 this.margin + (colWidth * 2) + 3, yPosition + 13);
 
         yPosition += fwcBoxHeight + 10;
         return yPosition;
