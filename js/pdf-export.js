@@ -167,7 +167,7 @@ class PDFExporter {
         doc.setTextColor(...this.colors.darkGray);
         doc.setFont(undefined, 'normal');
         
-        const placeholderText = pdfText.placeholderText || 'Pay+ seamlessly enables the completion of the invoice-to-pay lifecycle through modern payments orchestration for flexibility and economical transactions.';
+        const placeholderText = pdfText.placeholderText || 'Pay+ seamlessly enables the completion of the invoice-to-pay lifecycle through modern payments orchestration for flexibility and economical transactions. We took your information on what it costs your organisation to make payments today, and estimated your potential cost savings per year if you used Tungsten Pay+.';
         
         const lines = doc.splitTextToSize(placeholderText, this.contentWidth);
         lines.forEach(line => {
