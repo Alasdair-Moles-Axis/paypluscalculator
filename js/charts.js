@@ -432,8 +432,6 @@ class ChartsManager {
      * Update all charts with new data - new separated structure
      */
     updateCharts(results) {
-        // Skip payment distribution chart (not in results panel)
-        this.updateFXDistributionChart(results.data.customerInfo.fxVolume.distribution);
         this.updateCostComparisonChart(results.detailedCosts);
         this.updateSavingsBreakdownChart(results.costs, results.incentives);
         this.updateDistributionCharts(results.detailedCosts, results.costs.savings);
@@ -568,6 +566,111 @@ class ChartsManager {
             
             this.charts.tungstenDistribution.update('active');
         }
+    }
+
+    /**
+     * Create Cumulative ROI Chart (Line/Area)
+     */
+    createCumulativeROIChart() {
+        const ctx = document.getElementById('cumulative-roi-chart');
+        if (!ctx) return;
+
+        this.charts.cumulativeROI = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Cumulative Savings',
+                    data: [],
+                    borderColor: this.colors.primary,
+                    backgroundColor: 'rgba(0, 40, 84, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: this.colors.primary,
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y || 0;
+                                return `Cumulative: ${FormatUtils.formatCurrency(value, 0)}`;
+                            }
+                        },
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 13 }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: function(value) {
+                                return FormatUtils.formatCurrency(value, 0);
+                            },
+                            font: { size: 12 }
+                        },
+                        grid: {
+                            color: function(context) {
+                                if (context.tick.value === 0) {
+                                    return 'rgba(0, 0, 0, 0.3)';
+                                }
+                                return 'rgba(0, 0, 0, 0.05)';
+                            },
+                            lineWidth: function(context) {
+                                return context.tick.value === 0 ? 2 : 1;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: { size: 12 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Update Cumulative ROI Chart
+     */
+    updateCumulativeROIChart(cumulativeROIData) {
+        if (!this.charts.cumulativeROI) {
+            this.createCumulativeROIChart();
+        }
+        if (!this.charts.cumulativeROI || !cumulativeROIData) return;
+
+        const hasImplCost = cumulativeROIData.implementationCost > 0;
+        const labels = cumulativeROIData.timeline.map(item => item.periodLabel);
+
+        // Use netPosition when there are implementation costs, otherwise cumulativeSavings
+        const data = cumulativeROIData.timeline.map(item =>
+            hasImplCost ? item.netPosition : item.cumulativeSavings
+        );
+
+        this.charts.cumulativeROI.data.labels = labels;
+        this.charts.cumulativeROI.data.datasets[0].data = data;
+
+        // Update label
+        this.charts.cumulativeROI.data.datasets[0].label =
+            hasImplCost ? 'Net ROI (after implementation costs)' : 'Cumulative Savings';
+
+        this.charts.cumulativeROI.update('active');
     }
 
     /**

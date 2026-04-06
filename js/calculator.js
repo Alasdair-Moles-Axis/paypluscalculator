@@ -33,16 +33,9 @@ class ROICalculator {
                     cardPercent: 10
                 },
                 
-                // FX is now percentage of cross-border rail payments
+                // FX is percentage of cross-border rail payments
                 fxPercentOfCrossBorder: 50,
-                fxVolume: {
-                    distribution: {
-                        tier1Percent: 40,
-                        tier2Percent: 35,
-                        tier3Percent: 25
-                    }
-                },
-                
+
                 // WACC (Weighted Average Cost of Capital) as percentage
                 wacc: 8.0
             },
@@ -50,21 +43,13 @@ class ROICalculator {
                 tungsten: {
                     localRailFee: 0.50,
                     crossBorderFee: 2.00,
-                    fxMargins: {
-                        tier1: 0.50,
-                        tier2: 0.35,
-                        tier3: 0.20
-                    },
+                    fxMargin: 0.35,
                     cardRebate: 1.50
                 },
                 currentProvider: {
                     localRailFee: 1.00,
                     crossBorderFee: 3.50,
-                    fxMargins: {
-                        tier1: 0.75,
-                        tier2: 0.60,
-                        tier3: 0.45
-                    },
+                    fxMargin: 0.60,
                     cardRebate: 1.00
                 }
             }
@@ -199,24 +184,13 @@ class ROICalculator {
     }
 
     /**
-     * Calculate FX volumes by tier
-     * FX volume is now derived from cross-border rail payments
+     * Calculate FX volume (single band - percentage of cross-border rail payments)
      */
-    calculateFXVolumes() {
+    calculateFXVolume() {
         const breakdown = this.calculatePaymentBreakdown();
         const crossBorderRailValue = breakdown.rails.crossBorder.value;
         const fxPercent = this.data.customerInfo.fxPercentOfCrossBorder || 50;
-        
-        // FX volume is percentage of cross-border rail payments
-        const total = crossBorderRailValue * (fxPercent / 100);
-        const dist = this.data.customerInfo.fxVolume.distribution;
-        
-        return {
-            tier1: total * (dist.tier1Percent / 100),
-            tier2: total * (dist.tier2Percent / 100),
-            tier3: total * (dist.tier3Percent / 100),
-            total: total
-        };
+        return crossBorderRailValue * (fxPercent / 100);
     }
 
     /**
@@ -224,7 +198,7 @@ class ROICalculator {
      */
     calculateProviderCosts(provider) {
         const breakdown = this.calculatePaymentBreakdown();
-        const fxVolumes = this.calculateFXVolumes();
+        const fxVolume = this.calculateFXVolume();
         const fees = this.data.fees[provider];
 
         // Rail costs (flat fee per transaction)
@@ -233,17 +207,13 @@ class ROICalculator {
         const totalRailCost = localRailCost + crossBorderRailCost;
 
         // Card rebate (benefit, not a cost)
-        // Higher rebate % = more benefit = more savings
         const cardRebate = breakdown.method.card.value * (fees.cardRebate / 100);
 
-        // FX costs (percentage by tier)
-        const fxTier1Cost = fxVolumes.tier1 * (fees.fxMargins.tier1 / 100);
-        const fxTier2Cost = fxVolumes.tier2 * (fees.fxMargins.tier2 / 100);
-        const fxTier3Cost = fxVolumes.tier3 * (fees.fxMargins.tier3 / 100);
-        const fxTotalCost = fxTier1Cost + fxTier2Cost + fxTier3Cost;
+        // FX cost (single margin applied to total FX volume)
+        const fxCost = fxVolume * (fees.fxMargin / 100);
 
         // Total cost (rails + FX only, cards are rebates not costs)
-        const totalCost = totalRailCost + fxTotalCost;
+        const totalCost = totalRailCost + fxCost;
 
         // Metrics
         const totalTransactions = this.data.customerInfo.totalPaymentCount;
@@ -257,10 +227,7 @@ class ROICalculator {
             rails: totalRailCost,
             cardRebate: cardRebate,
             fx: {
-                tier1: fxTier1Cost,
-                tier2: fxTier2Cost,
-                tier3: fxTier3Cost,
-                total: fxTotalCost
+                total: fxCost
             },
             total: totalCost,
             costPerTransaction: costPerTransaction,
@@ -342,28 +309,132 @@ class ROICalculator {
     }
 
     /**
-     * Get complete results
+     * Calculate cumulative ROI timeline (month-by-month)
      */
-    getResults() {
+    calculateCumulativeROI(options = {}) {
+        const periods = options.periods || (typeof CONFIG !== 'undefined' ? CONFIG.cumulativeROI.periods : 12);
+        const implementationCost = options.implementationCost || 0;
+        const monthlySubscription = options.monthlySubscription || 0;
+        const rampUpMonths = options.rampUpMonths != null ? options.rampUpMonths : (typeof CONFIG !== 'undefined' ? CONFIG.cumulativeROI.rampUpMonths : 2);
+        const annualGrowthRate = options.volumeGrowthRate || 0;
+        const monthlyGrowthRate = annualGrowthRate > 0 ? Math.pow(1 + annualGrowthRate / 100, 1/12) - 1 : 0;
+
+        const savingsData = this.calculateSavings();
+        const baseMonthlyBenefit = savingsData.totalAnnualBenefit / 12;
+
+        const timeline = [];
+        let cumulativeSavings = 0;
+        let breakEvenPeriod = null;
+
+        for (let i = 1; i <= periods; i++) {
+            // Volume growth factor (compounding monthly)
+            const growthFactor = monthlyGrowthRate > 0 ? Math.pow(1 + monthlyGrowthRate, i - 1) : 1;
+
+            // Linear ramp-up factor
+            let rampFactor = 1;
+            if (rampUpMonths > 0 && i <= rampUpMonths) {
+                rampFactor = i / (rampUpMonths + 1);
+            }
+
+            const grossSavings = baseMonthlyBenefit * rampFactor * growthFactor;
+            const savingsThisPeriod = grossSavings - monthlySubscription;
+            cumulativeSavings += savingsThisPeriod;
+            const netPosition = cumulativeSavings - implementationCost;
+
+            if (breakEvenPeriod === null && netPosition >= 0) {
+                breakEvenPeriod = i;
+            }
+
+            timeline.push({
+                period: i,
+                periodLabel: `Month ${i}`,
+                savingsThisPeriod: savingsThisPeriod,
+                cumulativeSavings: cumulativeSavings,
+                netPosition: netPosition
+            });
+        }
+
+        return {
+            timeline: timeline,
+            breakEvenPeriod: breakEvenPeriod,
+            totalCumulativeSavings: cumulativeSavings,
+            monthlyBenefitAtScale: baseMonthlyBenefit,
+            implementationCost: implementationCost,
+            monthlySubscription: monthlySubscription,
+            volumeGrowthRate: annualGrowthRate
+        };
+    }
+
+    /**
+     * Calculate partner upside (aggregate only - never exposes individual fees)
+     */
+    calculatePartnerUpside(partnerConfig) {
+        if (!partnerConfig) return { spiff: { enabled: false, value: 0 }, bulkBuy: { enabled: false, annualRevShare: 0, upfrontCost: 0 }, revenueShare: { enabled: false, value: 0 }, totalAnnualUpside: 0 };
+
+        const tungstenCosts = this.calculateProviderCosts('tungsten');
+        const result = {
+            spiff: { enabled: false, value: 0 },
+            bulkBuy: { enabled: false, annualRevShare: 0, upfrontCost: 0 },
+            revenueShare: { enabled: false, value: 0 },
+            totalAnnualUpside: 0
+        };
+
+        // SPIFF: one-time bonus per deal
+        if (partnerConfig.spiff && partnerConfig.spiff.enabled) {
+            result.spiff = {
+                enabled: true,
+                value: partnerConfig.spiff.amountPerDeal || 0
+            };
+        }
+
+        // Bulk Buy: partner pays upfront, gets enhanced revenue share
+        if (partnerConfig.bulkBuy && partnerConfig.bulkBuy.enabled) {
+            const upfrontCost = partnerConfig.bulkBuy.upfrontCost || 0;
+            const enhancedRevSharePct = partnerConfig.bulkBuy.enhancedRevShare || 0;
+            const annualRevShare = tungstenCosts.total * (enhancedRevSharePct / 100);
+            result.bulkBuy = {
+                enabled: true,
+                annualRevShare: annualRevShare,
+                upfrontCost: upfrontCost
+            };
+        }
+
+        // Standard Revenue Share (no upfront cost)
+        if (partnerConfig.revenueShare && partnerConfig.revenueShare.enabled) {
+            result.revenueShare = {
+                enabled: true,
+                value: tungstenCosts.total * (partnerConfig.revenueShare.percentage / 100)
+            };
+        }
+
+        // Total annual upside = bulk buy annual rev share + standard rev share
+        // (SPIFF is one-time, shown separately)
+        result.totalAnnualUpside = result.bulkBuy.annualRevShare + result.revenueShare.value;
+
+        return result;
+    }
+
+    /**
+     * Get complete results with optional extensions
+     */
+    getResults(options = {}) {
         const breakdown = this.calculatePaymentBreakdown();
-        const fxVolumes = this.calculateFXVolumes();
+        const fxVolume = this.calculateFXVolume();
         const savingsData = this.calculateSavings();
         const avgTransactionSize = this.calculateAverageTransactionSize();
         const freedWorkingCapital = this.calculateFreedWorkingCapital();
         const waccValue = this.calculateWACCValue();
 
-        return {
+        const results = {
             breakdown: breakdown,
-            fxVolumes: fxVolumes,
+            fxVolume: fxVolume,
             averageTransactionSize: avgTransactionSize,
-            // New structure: completely separated
             costs: savingsData.costs,
             incentives: savingsData.incentives,
             totalAnnualBenefit: savingsData.totalAnnualBenefit,
             freedWorkingCapital: freedWorkingCapital,
             waccValue: waccValue,
             wacc: this.data.customerInfo.wacc,
-            // Keep detailed data for charts
             detailedCosts: {
                 current: savingsData.currentCosts,
                 tungsten: savingsData.tungstenCosts
@@ -372,37 +443,18 @@ class ROICalculator {
             currencySymbol: this.getCurrencySymbol(),
             data: this.data
         };
-    }
 
-    /**
-     * Adjust FX tier percentages proportionally
-     */
-    adjustFXTiers(changedTier, newValue) {
-        const dist = this.data.customerInfo.fxVolume.distribution;
-        const remaining = 100 - newValue;
-        
-        dist[`tier${changedTier}Percent`] = newValue;
-        
-        const otherTiers = [1, 2, 3].filter(t => t !== changedTier);
-        const tier1 = otherTiers[0];
-        const tier2 = otherTiers[1];
-        
-        const currentTier1 = dist[`tier${tier1}Percent`];
-        const currentTier2 = dist[`tier${tier2}Percent`];
-        const currentTotal = currentTier1 + currentTier2;
-        
-        if (currentTotal > 0) {
-            dist[`tier${tier1}Percent`] = (currentTier1 / currentTotal) * remaining;
-            dist[`tier${tier2}Percent`] = (currentTier2 / currentTotal) * remaining;
-        } else {
-            dist[`tier${tier1}Percent`] = remaining / 2;
-            dist[`tier${tier2}Percent`] = remaining / 2;
+        // Optional: Include cumulative ROI data
+        if (options.includeCumulativeROI) {
+            results.cumulativeROI = this.calculateCumulativeROI(options.cumulativeROIOptions || {});
         }
-        
-        const total = dist.tier1Percent + dist.tier2Percent + dist.tier3Percent;
-        if (Math.abs(total - 100) > 0.01) {
-            dist.tier3Percent += (100 - total);
+
+        // Optional: Include partner upside data
+        if (options.includePartnerUpside && options.partnerConfig) {
+            results.partnerUpside = this.calculatePartnerUpside(options.partnerConfig);
         }
+
+        return results;
     }
 
     /**
@@ -416,13 +468,6 @@ class ROICalculator {
         if (info.totalPaymentCount < 0) errors.push('Total payment count must be positive');
         if (info.fxPercentOfCrossBorder < 0 || info.fxPercentOfCrossBorder > 100) {
             errors.push('FX percentage must be between 0 and 100');
-        }
-
-        const fxTotal = info.fxVolume.distribution.tier1Percent + 
-                       info.fxVolume.distribution.tier2Percent + 
-                       info.fxVolume.distribution.tier3Percent;
-        if (Math.abs(fxTotal - 100) > 0.01) {
-            errors.push('FX distribution must sum to 100%');
         }
 
         return {

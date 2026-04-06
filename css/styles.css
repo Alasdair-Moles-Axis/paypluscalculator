@@ -112,10 +112,23 @@ body {
    ============================================ */
 
 .app-header {
-    background: linear-gradient(135deg, var(--tungsten-primary) 0%, var(--tungsten-secondary) 100%);
+    background: linear-gradient(135deg, var(--tungsten-primary) 0%, var(--tungsten-light) 40%, var(--tungsten-secondary) 100%);
     color: white;
-    padding: var(--space-6) var(--space-4);
-    box-shadow: var(--shadow-md);
+    padding: var(--space-8) var(--space-6);
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.app-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 60%;
+    height: 200%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.05) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .header-content {
@@ -127,12 +140,21 @@ body {
 }
 
 .app-logo {
-    height: 60px;
+    height: 72px;
     width: auto;
     background: white;
-    padding: var(--space-2);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
+    padding: var(--space-3);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), 0 0 30px rgba(255, 255, 255, 0.1);
+    transition: transform var(--transition-base), box-shadow var(--transition-base);
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+}
+
+.app-logo:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3), 0 0 40px rgba(255, 255, 255, 0.15);
 }
 
 .app-header-text {
@@ -171,8 +193,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
-    padding: var(--space-4);
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-4);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
@@ -181,7 +203,7 @@ body {
     font-family: var(--font-primary);
     font-size: 14px;
     color: var(--gray-600);
-    min-height: 72px;
+    min-height: 56px;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -907,27 +929,27 @@ body {
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    height: 56px;
-    padding: var(--space-4) var(--space-6);
-    font-size: 16px;
+    height: 50px;
+    padding: var(--space-3) var(--space-6);
+    font-size: 15px;
     font-weight: 600;
     font-family: var(--font-primary);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-full);
     cursor: pointer;
     transition: all var(--transition-base);
     -webkit-tap-highlight-color: transparent;
 }
 
 .action-button.primary {
-    background-color: var(--tungsten-primary);
+    background: linear-gradient(135deg, var(--tungsten-primary) 0%, var(--tungsten-light) 100%);
     color: white;
 }
 
 .action-button.primary:hover {
-    background-color: var(--tungsten-secondary);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, var(--tungsten-light) 0%, var(--tungsten-primary) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 40, 84, 0.35);
 }
 
 .action-button.primary:active {
@@ -942,6 +964,8 @@ body {
 
 .action-button.secondary:hover {
     background-color: var(--gray-50);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .button-icon {
@@ -1265,4 +1289,237 @@ body {
 .editable-percent:focus {
     outline: 2px solid var(--tungsten-primary);
     background-color: var(--white);
+}
+
+/* ============================================
+   Mode Toggle
+   ============================================ */
+
+.mode-toggle-section {
+    margin-bottom: var(--space-6);
+}
+
+.mode-toggle-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: var(--space-3);
+}
+
+.mode-toggle {
+    display: flex;
+    background-color: var(--gray-100);
+    border-radius: var(--radius-full);
+    padding: 3px;
+    gap: 2px;
+}
+
+.mode-toggle-btn {
+    flex: 1;
+    padding: var(--space-3) var(--space-4);
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    font-family: var(--font-primary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-500);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    white-space: nowrap;
+}
+
+.mode-toggle-btn:hover {
+    color: var(--gray-700);
+}
+
+.mode-toggle-btn.active {
+    background: var(--tungsten-primary);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   Partner Configuration Panel
+   ============================================ */
+
+.partner-config-panel {
+    margin-bottom: var(--space-6);
+    padding: var(--space-5);
+    background-color: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+}
+
+.partner-config-panel.hidden {
+    display: none;
+}
+
+.partner-config-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: var(--space-2);
+}
+
+.partner-mechanism {
+    margin-bottom: var(--space-4);
+    padding: var(--space-4);
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+}
+
+.mechanism-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.mechanism-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--tungsten-primary);
+    cursor: pointer;
+}
+
+.mechanism-name {
+    flex: 1;
+}
+
+.mechanism-config {
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--gray-100);
+}
+
+.mechanism-config.hidden {
+    display: none;
+}
+
+.mechanism-field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.mechanism-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-600);
+    white-space: nowrap;
+}
+
+.mechanism-field .fee-input {
+    max-width: 140px;
+    height: 40px;
+}
+
+.mechanism-tiers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.mechanism-tier-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--gray-600);
+    font-weight: 500;
+}
+
+.mechanism-tier-row label {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tier-input {
+    max-width: 90px !important;
+    height: 36px !important;
+    font-size: 13px !important;
+}
+
+/* Settings Divider */
+.settings-divider {
+    border: none;
+    border-top: 1px solid var(--gray-200);
+    margin: var(--space-5) 0;
+}
+
+/* ============================================
+   Break-Even Badge
+   ============================================ */
+
+.break-even-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: linear-gradient(135deg, var(--tungsten-primary) 0%, var(--tungsten-light) 100%);
+    color: white;
+    border-radius: var(--radius-full);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: var(--space-4);
+    display: inline-flex;
+}
+
+.badge-icon {
+    font-size: 16px;
+}
+
+.badge-text {
+    letter-spacing: 0.3px;
+}
+
+/* ============================================
+   Partner Upside Section
+   ============================================ */
+
+#partner-upside-section.hidden {
+    display: none;
+}
+
+#cumulative-roi-section.hidden {
+    display: none;
+}
+
+/* ============================================
+   Enhanced Input Focus States
+   ============================================ */
+
+.input-field:focus,
+.fee-input:focus,
+.transaction-input:focus {
+    outline: none;
+    border-color: var(--tungsten-primary);
+    box-shadow: 0 0 0 3px rgba(0, 40, 84, 0.12);
+}
+
+/* ============================================
+   Section Title Enhancement
+   ============================================ */
+
+.panel-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: var(--space-6);
+    letter-spacing: -0.3px;
+}
+
+.chart-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: var(--space-4);
+    margin-top: var(--space-6);
 }

@@ -9,7 +9,7 @@
     <title>Tungsten Pay+ Payments Optimisation Analysis</title>
     
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/styles.css?v=23">
+    <link rel="stylesheet" href="css/styles.css?v=25">
     
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -182,41 +182,15 @@
                             </div>
                             
                             <div class="fee-item">
-                                <label for="current-fx-tier1" class="fee-label">FX margin tier 1 (0-100k) %</label>
+                                <label for="current-fx-margin" class="fee-label">FX margin %</label>
                                 <input
                                     type="number"
-                                    id="current-fx-tier1"
-                                    class="fee-input"
-                                    min="0"
-                                    max="100"
-                                    step="0.01"
-                                    value="0.75"
-                                />
-                            </div>
-                            
-                            <div class="fee-item">
-                                <label for="current-fx-tier2" class="fee-label">FX margin tier 2 (100k-500k) %</label>
-                                <input
-                                    type="number"
-                                    id="current-fx-tier2"
+                                    id="current-fx-margin"
                                     class="fee-input"
                                     min="0"
                                     max="100"
                                     step="0.01"
                                     value="0.60"
-                                />
-                            </div>
-                            
-                            <div class="fee-item">
-                                <label for="current-fx-tier3" class="fee-label">FX margin tier 3 (>500k) %</label>
-                                <input
-                                    type="number"
-                                    id="current-fx-tier3"
-                                    class="fee-input"
-                                    min="0"
-                                    max="100"
-                                    step="0.01"
-                                    value="0.45"
                                 />
                             </div>
                         </div>
@@ -356,79 +330,7 @@
                         </div>
                     </div>
                     
-                    <!-- FX Distribution -->
-                    <div class="input-section">
-                        <h3 class="section-title">FX volume distribution by transaction size</h3>
-                        <p class="section-description">Distribute your FX volume across transaction size tiers</p>
-                        
-                        <div class="distribution-container">
-                            <!-- Tier 1: 0-100k -->
-                            <div class="distribution-item">
-                                <div class="distribution-header">
-                                    <label class="distribution-label">Tier 1: $0 - $100k</label>
-                                    <div class="distribution-values">
-                                        <span class="distribution-percent tier1 editable-percent" id="fx-tier1-percent" data-slider="fx-tier1-slider" contenteditable="true">40%</span>
-                                        <span class="distribution-amount" id="fx-tier1-amount">$4,000,000</span>
-                                    </div>
-                                </div>
-                                <div class="slider-container">
-                                    <input 
-                                        type="range" 
-                                        id="fx-tier1-slider"
-                                        class="slider tier1-slider"
-                                        min="0" 
-                                        max="100" 
-                                        value="40"
-                                        aria-label="FX Tier 1 percentage"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <!-- Tier 2: 100k-500k -->
-                            <div class="distribution-item">
-                                <div class="distribution-header">
-                                    <label class="distribution-label">Tier 2: $100k - $500k</label>
-                                    <div class="distribution-values">
-                                        <span class="distribution-percent tier2 editable-percent" id="fx-tier2-percent" data-slider="fx-tier2-slider" contenteditable="true">35%</span>
-                                        <span class="distribution-amount" id="fx-tier2-amount">$3,500,000</span>
-                                    </div>
-                                </div>
-                                <div class="slider-container">
-                                    <input 
-                                        type="range" 
-                                        id="fx-tier2-slider"
-                                        class="slider tier2-slider"
-                                        min="0" 
-                                        max="100" 
-                                        value="35"
-                                        aria-label="FX Tier 2 percentage"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <!-- Tier 3: >500k (NOW EDITABLE) -->
-                            <div class="distribution-item">
-                                <div class="distribution-header">
-                                    <label class="distribution-label">Tier 3: >$500k</label>
-                                    <div class="distribution-values">
-                                        <span class="distribution-percent tier3 editable-percent" id="fx-tier3-percent" data-slider="fx-tier3-slider" contenteditable="true">25%</span>
-                                        <span class="distribution-amount" id="fx-tier3-amount">$2,500,000</span>
-                                    </div>
-                                </div>
-                                <div class="slider-container">
-                                    <input
-                                        type="range"
-                                        id="fx-tier3-slider"
-                                        class="slider tier3-slider"
-                                        min="0"
-                                        max="100"
-                                        value="25"
-                                        aria-label="FX Tier 3 percentage"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- FX volume is now calculated directly from cross-border % and FX share % -->
                     
                     <!-- Tungsten Fee Settings (Collapsible) -->
                     <div class="settings-section hidden" id="tungsten-settings">
@@ -439,6 +341,137 @@
                             </button>
                         </div>
                         <div class="settings-content" id="settings-content" style="display: none;">
+                            <!-- Calculator Mode Toggle -->
+                            <div class="mode-toggle-section">
+                                <label class="mode-toggle-label">Calculator Mode</label>
+                                <div class="mode-toggle" id="mode-toggle">
+                                    <button class="mode-toggle-btn active" data-mode="direct-to-client">Direct to Client</button>
+                                    <button class="mode-toggle-btn" data-mode="partner-reseller">Partner Reseller</button>
+                                </div>
+                            </div>
+
+                            <!-- Partner Configuration Panel -->
+                            <div class="partner-config-panel hidden" id="partner-config-panel">
+                                <h4 class="partner-config-title">Partner Upside Mechanisms</h4>
+                                <p class="section-description">Enable and configure partner incentive mechanisms (mix and match)</p>
+
+                                <!-- SPIFF -->
+                                <div class="partner-mechanism">
+                                    <label class="mechanism-toggle">
+                                        <input type="checkbox" id="spiff-enabled" />
+                                        <span class="mechanism-name">SPIFF (One-time Bonus per Deal)</span>
+                                    </label>
+                                    <div class="mechanism-config hidden" id="spiff-config">
+                                        <div class="mechanism-field">
+                                            <label for="spiff-amount">Amount per deal ($)</label>
+                                            <input type="number" id="spiff-amount" class="fee-input" min="0" step="50" value="500" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Bulk Buy -->
+                                <div class="partner-mechanism">
+                                    <label class="mechanism-toggle">
+                                        <input type="checkbox" id="bulk-buy-enabled" />
+                                        <span class="mechanism-name">Bulk Buy (Upfront Purchase)</span>
+                                    </label>
+                                    <div class="mechanism-config hidden" id="bulk-buy-config">
+                                        <p class="section-description" style="margin-bottom: var(--space-3);">Partner buys upfront at a discount and receives an enhanced share of transactional revenue</p>
+                                        <div class="fee-grid" style="grid-template-columns: repeat(2, 1fr);">
+                                            <div class="fee-item">
+                                                <label for="bulk-buy-upfront-cost" class="fee-label">Upfront purchase cost ($)</label>
+                                                <div class="input-wrapper">
+                                                    <span class="input-prefix">$</span>
+                                                    <input type="number" id="bulk-buy-upfront-cost" class="fee-input" min="0" step="500" value="10000" />
+                                                </div>
+                                            </div>
+                                            <div class="fee-item">
+                                                <label for="bulk-buy-rev-share" class="fee-label">Enhanced revenue share (%)</label>
+                                                <input type="number" id="bulk-buy-rev-share" class="fee-input" min="0" max="100" step="0.5" value="20" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Revenue Share (Standard) -->
+                                <div class="partner-mechanism">
+                                    <label class="mechanism-toggle">
+                                        <input type="checkbox" id="revenue-share-enabled" />
+                                        <span class="mechanism-name">Standard Revenue Share (No Upfront)</span>
+                                    </label>
+                                    <div class="mechanism-config hidden" id="revenue-share-config">
+                                        <div class="mechanism-field">
+                                            <label for="revenue-share-percent">Revenue share (%)</label>
+                                            <input type="number" id="revenue-share-percent" class="fee-input" min="0" max="100" step="0.5" value="10" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ROI Projection Settings -->
+                            <div class="partner-mechanism" style="margin-top: var(--space-4);">
+                                <h4 class="partner-config-title" style="margin-bottom: var(--space-3);">ROI Projection Settings</h4>
+                                <div class="fee-grid" style="grid-template-columns: repeat(2, 1fr);">
+                                    <div class="fee-item">
+                                        <label for="ramp-up-months" class="fee-label">Ramp-up period (months)</label>
+                                        <input type="number" id="ramp-up-months" class="fee-input" min="0" max="12" step="1" value="2" />
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="volume-growth-rate" class="fee-label">Annual volume growth (%)</label>
+                                        <input type="number" id="volume-growth-rate" class="fee-input" min="0" max="100" step="0.5" value="0" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Subscription & Implementation Costs -->
+                            <div class="partner-mechanism" style="margin-top: var(--space-4);">
+                                <h4 class="partner-config-title" style="margin-bottom: var(--space-3);">Subscription & Implementation Costs</h4>
+                                <p class="section-description" style="margin-bottom: var(--space-3);">These costs factor into the ROI timeline for both direct and partner models</p>
+                                <div class="fee-grid" style="grid-template-columns: repeat(2, 1fr);">
+                                    <div class="fee-item">
+                                        <label for="subscription-monthly" class="fee-label">Monthly subscription ($)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix">$</span>
+                                            <input type="number" id="subscription-monthly" class="fee-input" min="0" step="50" value="0" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label class="fee-label">Annual subscription cost</label>
+                                        <div class="calculated-field" style="margin: 0; height: 48px;">
+                                            <span class="calculated-value" id="subscription-annual" style="font-size: 16px;">$0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="fee-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: var(--space-3);">
+                                    <div class="fee-item">
+                                        <label for="impl-setup-fee" class="fee-label">Setup fee ($)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix">$</span>
+                                            <input type="number" id="impl-setup-fee" class="fee-input" min="0" step="100" value="0" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="impl-integration-fee" class="fee-label">Integration fee ($)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix">$</span>
+                                            <input type="number" id="impl-integration-fee" class="fee-input" min="0" step="100" value="0" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="impl-training-fee" class="fee-label">Training fee ($)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix">$</span>
+                                            <input type="number" id="impl-training-fee" class="fee-input" min="0" step="100" value="0" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="calculated-field" style="margin-top: var(--space-4); margin-bottom: 0;">
+                                    <span class="calculated-label">Total one-off implementation cost</span>
+                                    <span class="calculated-value" id="impl-total-cost">$0</span>
+                                </div>
+                            </div>
+
+                            <hr class="settings-divider" />
                             <p class="section-description">Configure Tungsten Pay+ fees for comparison</p>
                             
                             <div class="fee-grid">
@@ -473,41 +506,15 @@
                                 </div>
                                 
                                 <div class="fee-item">
-                                    <label for="tungsten-fx-tier1" class="fee-label">FX margin Tier 1 (0-100k) %</label>
+                                    <label for="tungsten-fx-margin" class="fee-label">FX margin %</label>
                                     <input
                                         type="number"
-                                        id="tungsten-fx-tier1"
-                                        class="fee-input"
-                                        min="0"
-                                        max="100"
-                                        step="0.01"
-                                        value="0.50"
-                                    />
-                                </div>
-                                
-                                <div class="fee-item">
-                                    <label for="tungsten-fx-tier2" class="fee-label">FX margin Tier 2 (100k-500k) %</label>
-                                    <input
-                                        type="number"
-                                        id="tungsten-fx-tier2"
+                                        id="tungsten-fx-margin"
                                         class="fee-input"
                                         min="0"
                                         max="100"
                                         step="0.01"
                                         value="0.35"
-                                    />
-                                </div>
-                                
-                                <div class="fee-item">
-                                    <label for="tungsten-fx-tier3" class="fee-label">FX margin Tier 3 (>500k) %</label>
-                                    <input
-                                        type="number"
-                                        id="tungsten-fx-tier3"
-                                        class="fee-input"
-                                        min="0"
-                                        max="100"
-                                        step="0.01"
-                                        value="0.20"
                                     />
                                 </div>
                                 
@@ -609,6 +616,44 @@
                         <p style="font-size: 11px; color: #6B7280; font-style: italic; margin-top: 8px; margin-left: 4px;">* Card rebates represent benefit increases, not cost savings</p>
                     </div>
                     
+                    <!-- Partner Upside Section (hidden by default, shown in partner mode) -->
+                    <div class="chart-section hidden" id="partner-upside-section">
+                        <h3 class="chart-title">Partner Upside Summary</h3>
+                        <div class="summary-cards">
+                            <div class="summary-card savings primary-card" id="spiff-card" style="display: none;">
+                                <div class="card-label">SPIFF (One-time)</div>
+                                <div class="card-value" id="partner-spiff-value">$0</div>
+                            </div>
+                            <div class="summary-card savings secondary-card" id="bulk-buy-card" style="display: none;">
+                                <div class="card-label">Bulk Buy Revenue Share (Annual)</div>
+                                <div class="card-value" id="partner-bulk-value">$0</div>
+                                <div class="card-sublabel" id="partner-bulk-upfront" style="font-size: 11px; color: var(--gray-500); margin-top: 4px;"></div>
+                            </div>
+                            <div class="summary-card savings secondary-card" id="revenue-share-card" style="display: none;">
+                                <div class="card-label">Revenue Share (Annual)</div>
+                                <div class="card-value" id="partner-revenue-value">$0</div>
+                            </div>
+                        </div>
+                        <div class="summary-cards">
+                            <div class="summary-card savings primary-card" style="grid-column: 1 / -1;">
+                                <div class="card-label">Total Partner Annual Upside</div>
+                                <div class="card-value" id="partner-total-upside">$0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cumulative ROI Timeline (shown in direct-to-client mode) -->
+                    <div class="chart-section" id="cumulative-roi-section">
+                        <h3 class="chart-title">Cumulative Savings Timeline</h3>
+                        <div class="break-even-badge" id="break-even-badge" style="display: none;">
+                            <span class="badge-icon">📈</span>
+                            <span class="badge-text" id="break-even-text">Break-even in Month 1</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="cumulative-roi-chart"></canvas>
+                        </div>
+                    </div>
+
                     <!-- Cost Distribution Charts -->
                     <div class="chart-section">
                         <h3 class="chart-title">Cost distribution</h3>
@@ -653,12 +698,12 @@
     
     
     <!-- Scripts -->
-    <script src="js/config.js?v=23"></script>
-    <script src="js/calculator.js?v=23"></script>
-    <script src="js/storage.js?v=23"></script>
-    <script src="js/charts.js?v=23"></script>
-    <script src="js/pdf-export.js?v=23"></script>
-    <script src="js/app.js?v=23"></script>
+    <script src="js/config.js?v=25"></script>
+    <script src="js/calculator.js?v=25"></script>
+    <script src="js/storage.js?v=25"></script>
+    <script src="js/charts.js?v=25"></script>
+    <script src="js/pdf-export.js?v=25"></script>
+    <script src="js/app.js?v=25"></script>
 </body>
 
 </html>

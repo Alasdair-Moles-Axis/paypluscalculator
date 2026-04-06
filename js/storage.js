@@ -352,6 +352,65 @@ class StorageManager {
         storage.settings = { ...storage.settings, ...settings };
         return this.saveData(storage);
     }
+
+    /**
+     * Get calculator mode ('direct-to-client' or 'partner-reseller')
+     */
+    getCalculatorMode() {
+        try {
+            return localStorage.getItem('calculatorMode') || 'direct-to-client';
+        } catch (e) {
+            return 'direct-to-client';
+        }
+    }
+
+    /**
+     * Set calculator mode
+     */
+    setCalculatorMode(mode) {
+        try {
+            localStorage.setItem('calculatorMode', mode);
+            return true;
+        } catch (e) {
+            console.error('Error saving calculator mode:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Get partner configuration
+     */
+    getPartnerConfig() {
+        try {
+            const config = localStorage.getItem('partnerConfig');
+            if (config) {
+                return JSON.parse(config);
+            }
+        } catch (e) {
+            console.error('Error reading partner config:', e);
+        }
+        // Return defaults from CONFIG if available
+        return (typeof CONFIG !== 'undefined' && CONFIG.defaultPartnerConfig)
+            ? JSON.parse(JSON.stringify(CONFIG.defaultPartnerConfig))
+            : {
+                spiff: { enabled: false, amountPerDeal: 500 },
+                bulkBuy: { enabled: false, upfrontCost: 10000, enhancedRevShare: 20 },
+                revenueShare: { enabled: false, percentage: 10 }
+            };
+    }
+
+    /**
+     * Set partner configuration
+     */
+    setPartnerConfig(config) {
+        try {
+            localStorage.setItem('partnerConfig', JSON.stringify(config));
+            return true;
+        } catch (e) {
+            console.error('Error saving partner config:', e);
+            return false;
+        }
+    }
 }
 
 // Export for use in other modules

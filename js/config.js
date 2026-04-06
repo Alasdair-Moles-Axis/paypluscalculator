@@ -73,9 +73,7 @@ const CONFIG = {
             fxPercentOfCrossBorder: '% Cross-border requiring FX',
             currentLocalPaymentFee: 'Current local payment fee',
             currentCrossBorderPaymentFee: 'Current cross-border payment fee',
-            currentFxMarginTier1: 'Current FX margin (0-100k)',
-            currentFxMarginTier2: 'Current FX margin (100k-500k)',
-            currentFxMarginTier3: 'Current FX margin (>500k)',
+            currentFxMargin: 'Current FX margin',
             currentCardRebate: 'Current card rebate',
             currentAnnualCost: 'Current annual cost',
             tungstenAnnualCost: 'Tungsten annual cost'
@@ -122,11 +120,7 @@ const CONFIG = {
     defaultTungstenFees: {
         localRailFee: 0.15,
         crossBorderFee: 15.00,
-        fxMargins: {
-            tier1: 0.50,
-            tier2: 0.40,
-            tier3: 0.35
-        },
+        fxMargin: 0.35,
         cardRebate: 1.50
     },
     
@@ -138,11 +132,30 @@ const CONFIG = {
         fxPaymentShareDescription: 'What percentage of your cross-border payments require foreign exchange?'
     },
     
+    // Admin Password Hash (SHA-256 of admin password)
+    adminPasswordHash: '68bbe93c254e042ca6b001a3c364d996b0d0c44125a0be5caa5bb651a5c85e16',
+
+    // Default Partner Configuration
+    defaultPartnerConfig: {
+        spiff: { enabled: false, amountPerDeal: 500 },
+        bulkBuy: { enabled: false, upfrontCost: 10000, enhancedRevShare: 20 },
+        revenueShare: { enabled: false, percentage: 10 }
+    },
+
+    // Cumulative ROI Settings
+    cumulativeROI: {
+        periods: 12,
+        periodType: 'month',
+        implementationCostDefault: 0,
+        rampUpMonths: 2
+    },
+
+
     // Application Settings
     app: {
         autoSaveInterval: 30000,  // 30 seconds
         calculationDebounce: 800, // 800ms (increased to reduce popup frequency)
-        version: '5.0'
+        version: '6.0'
     }
 };
 

@@ -9,10 +9,16 @@ class TungstenROIApp {
         this.chartsManager = new ChartsManager();
         this.storageManager = new StorageManager();
         this.pdfExporter = new PDFExporter();
-        
+
         this.currentTab = 'input';
         this.isCalculating = false;
-        
+        this.calculatorMode = 'direct-to-client'; // or 'partner-reseller'
+        this.partnerConfig = null;
+        this.implementationCosts = { setupFee: 0, integrationFee: 0, trainingFee: 0 };
+        this.monthlySubscription = 0;
+        this.rampUpMonths = 2;
+        this.volumeGrowthRate = 0;
+
         // Debounced calculation function - Increased to 800ms to reduce popup frequency
         this.debouncedCalculate = FormatUtils.debounce(() => {
             this.calculate();
@@ -24,25 +30,41 @@ class TungstenROIApp {
      */
     init() {
         console.log('Initializing Tungsten ROI Calculator...');
-        
+
         // Load saved data
         this.loadSavedData();
-        
+
+        // Load calculator mode and partner config
+        this.calculatorMode = this.storageManager.getCalculatorMode();
+        this.partnerConfig = this.storageManager.getPartnerConfig();
+
         // Initialize charts
         this.chartsManager.initializeCharts();
-        
+        this.chartsManager.createCumulativeROIChart();
+
         // Setup event listeners
         this.setupEventListeners();
-        
+
         // Setup logo triple-click toggle
         this.setupLogoToggle();
-        
+
+        // Setup mode toggle, partner config, and implementation costs
+        this.setupModeToggle();
+        this.setupPartnerConfigListeners();
+        this.setupImplementationCostListeners();
+        this.loadImplementationCosts();
+        this.setupROIProjectionListeners();
+        this.loadROIProjectionSettings();
+
+        // Apply saved mode
+        this.applyCalculatorMode();
+
         // Initial calculation
         this.calculate();
-        
+
         // Setup auto-save
         this.setupAutoSave();
-        
+
         console.log('Application initialized successfully');
     }
 
@@ -92,69 +114,371 @@ class TungstenROIApp {
     /**
      * Setup password-protected logo toggle for Tungsten settings
      */
+    /**
+     * Hash a string using SHA-256 via Web Crypto API
+     */
+    async hashPassword(password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     setupLogoToggle() {
         const logo = document.querySelector('.app-logo');
         const settingsSection = document.getElementById('tungsten-settings');
-        
+
         if (!logo || !settingsSection) return;
-        
+
         let clickCount = 0;
         let clickTimer = null;
-        
-        logo.addEventListener('click', (e) => {
+
+        logo.addEventListener('click', async (e) => {
             clickCount++;
-            
-            // Clear existing timer
+
             if (clickTimer) {
                 clearTimeout(clickTimer);
             }
-            
-            // Set new timer to reset click count after 500ms
+
             clickTimer = setTimeout(() => {
                 clickCount = 0;
             }, 500);
-            
-            // Check for triple-click
+
             if (clickCount === 3) {
                 clickCount = 0;
                 clearTimeout(clickTimer);
-                
-                // Check if already visible
+
                 const isHidden = settingsSection.classList.contains('hidden');
-                
+
                 if (isHidden) {
-                    // Prompt for password
                     const password = prompt('Enter admin password:');
-                    
-                    if (password === 'projectgold') {
-                        settingsSection.classList.remove('hidden');
-                        settingsSection.classList.add('visible');
-                        this.showToast('Tungsten fee settings unlocked', 'success');
-                        
-                        // Save state to localStorage
-                        localStorage.setItem('tungstenSettingsVisible', 'true');
-                    } else if (password !== null) {
-                        // User entered wrong password (not cancelled)
-                        this.showToast('Incorrect password', 'error');
+
+                    if (password !== null) {
+                        const hash = await this.hashPassword(password);
+                        const expectedHash = (typeof CONFIG !== 'undefined' && CONFIG.adminPasswordHash)
+                            ? CONFIG.adminPasswordHash
+                            : '68bbe93c254e042ca6b001a3c364d996b0d0c44125a0be5caa5bb651a5c85e16';
+
+                        if (hash === expectedHash) {
+                            settingsSection.classList.remove('hidden');
+                            settingsSection.classList.add('visible');
+                            this.showToast('Admin settings unlocked', 'success');
+                            localStorage.setItem('tungstenSettingsVisible', 'true');
+                        } else {
+                            this.showToast('Incorrect password', 'error');
+                        }
                     }
                 } else {
-                    // Hide settings (no password needed to hide)
                     settingsSection.classList.add('hidden');
                     settingsSection.classList.remove('visible');
-                    this.showToast('Tungsten fee settings hidden', 'success');
-                    
-                    // Save state to localStorage
+                    this.showToast('Admin settings hidden', 'success');
                     localStorage.setItem('tungstenSettingsVisible', 'false');
                 }
             }
         });
-        
+
         // Restore state from localStorage
         const savedState = localStorage.getItem('tungstenSettingsVisible');
         if (savedState === 'true') {
             settingsSection.classList.remove('hidden');
             settingsSection.classList.add('visible');
         }
+    }
+
+    /**
+     * Setup calculator mode toggle
+     */
+    setupModeToggle() {
+        const modeButtons = document.querySelectorAll('#mode-toggle .mode-toggle-btn');
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                this.setCalculatorMode(mode);
+            });
+        });
+    }
+
+    /**
+     * Set calculator mode and update UI
+     */
+    setCalculatorMode(mode) {
+        this.calculatorMode = mode;
+        this.storageManager.setCalculatorMode(mode);
+        this.applyCalculatorMode();
+        this.calculate();
+        this.showToast(`Switched to ${mode === 'direct-to-client' ? 'Direct to Client' : 'Partner Reseller'} mode`, 'success');
+    }
+
+    /**
+     * Apply calculator mode to UI
+     */
+    applyCalculatorMode() {
+        const mode = this.calculatorMode;
+
+        // Update toggle buttons
+        document.querySelectorAll('#mode-toggle .mode-toggle-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+
+        // Show/hide partner config panel
+        const partnerPanel = document.getElementById('partner-config-panel');
+        if (partnerPanel) {
+            partnerPanel.classList.toggle('hidden', mode !== 'partner-reseller');
+        }
+
+        // Show/hide partner upside section in results
+        const partnerUpside = document.getElementById('partner-upside-section');
+        if (partnerUpside) {
+            partnerUpside.classList.toggle('hidden', mode !== 'partner-reseller');
+        }
+
+        // Show/hide cumulative ROI section
+        const cumulativeROI = document.getElementById('cumulative-roi-section');
+        if (cumulativeROI) {
+            cumulativeROI.classList.toggle('hidden', mode !== 'direct-to-client');
+        }
+
+        // Restore partner config values to inputs if in partner mode
+        if (mode === 'partner-reseller' && this.partnerConfig) {
+            this.restorePartnerConfigInputs();
+        }
+    }
+
+    /**
+     * Restore partner config values to form inputs
+     */
+    restorePartnerConfigInputs() {
+        const config = this.partnerConfig;
+        if (!config) return;
+
+        const spiffEnabled = document.getElementById('spiff-enabled');
+        if (spiffEnabled) spiffEnabled.checked = config.spiff?.enabled || false;
+        const spiffAmount = document.getElementById('spiff-amount');
+        if (spiffAmount) spiffAmount.value = config.spiff?.amountPerDeal || 500;
+        this.toggleMechanismConfig('spiff-enabled', 'spiff-config');
+
+        const bulkEnabled = document.getElementById('bulk-buy-enabled');
+        if (bulkEnabled) bulkEnabled.checked = config.bulkBuy?.enabled || false;
+        const bulkUpfront = document.getElementById('bulk-buy-upfront-cost');
+        if (bulkUpfront) bulkUpfront.value = config.bulkBuy?.upfrontCost || 10000;
+        const bulkRevShare = document.getElementById('bulk-buy-rev-share');
+        if (bulkRevShare) bulkRevShare.value = config.bulkBuy?.enhancedRevShare || 20;
+        this.toggleMechanismConfig('bulk-buy-enabled', 'bulk-buy-config');
+
+        const revEnabled = document.getElementById('revenue-share-enabled');
+        if (revEnabled) revEnabled.checked = config.revenueShare?.enabled || false;
+        const revPercent = document.getElementById('revenue-share-percent');
+        if (revPercent) revPercent.value = config.revenueShare?.percentage || 10;
+        this.toggleMechanismConfig('revenue-share-enabled', 'revenue-share-config');
+    }
+
+    /**
+     * Toggle mechanism config visibility
+     */
+    toggleMechanismConfig(checkboxId, configId) {
+        const checkbox = document.getElementById(checkboxId);
+        const config = document.getElementById(configId);
+        if (checkbox && config) {
+            config.classList.toggle('hidden', !checkbox.checked);
+        }
+    }
+
+    /**
+     * Setup partner config listeners
+     */
+    setupPartnerConfigListeners() {
+        // Mechanism checkboxes
+        const mechanisms = [
+            { checkbox: 'spiff-enabled', config: 'spiff-config' },
+            { checkbox: 'bulk-buy-enabled', config: 'bulk-buy-config' },
+            { checkbox: 'revenue-share-enabled', config: 'revenue-share-config' }
+        ];
+
+        mechanisms.forEach(({ checkbox, config }) => {
+            const el = document.getElementById(checkbox);
+            if (el) {
+                el.addEventListener('change', () => {
+                    this.toggleMechanismConfig(checkbox, config);
+                    this.updatePartnerConfig();
+                    this.debouncedCalculate();
+                });
+            }
+        });
+
+        // All partner config inputs
+        const partnerInputIds = [
+            'spiff-amount', 'bulk-buy-upfront-cost', 'bulk-buy-rev-share',
+            'revenue-share-percent'
+        ];
+
+        partnerInputIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', () => {
+                    this.updatePartnerConfig();
+                    this.debouncedCalculate();
+                });
+            }
+        });
+    }
+
+    /**
+     * Read partner config from form inputs and save
+     */
+    updatePartnerConfig() {
+        this.partnerConfig = {
+            spiff: {
+                enabled: document.getElementById('spiff-enabled')?.checked || false,
+                amountPerDeal: parseFloat(document.getElementById('spiff-amount')?.value) || 0
+            },
+            bulkBuy: {
+                enabled: document.getElementById('bulk-buy-enabled')?.checked || false,
+                upfrontCost: parseFloat(document.getElementById('bulk-buy-upfront-cost')?.value) || 0,
+                enhancedRevShare: parseFloat(document.getElementById('bulk-buy-rev-share')?.value) || 0
+            },
+            revenueShare: {
+                enabled: document.getElementById('revenue-share-enabled')?.checked || false,
+                percentage: parseFloat(document.getElementById('revenue-share-percent')?.value) || 0
+            }
+        };
+        this.storageManager.setPartnerConfig(this.partnerConfig);
+    }
+
+    /**
+     * Setup implementation cost listeners
+     */
+    setupImplementationCostListeners() {
+        ['impl-setup-fee', 'impl-integration-fee', 'impl-training-fee', 'subscription-monthly'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', () => {
+                    this.updateCostSettings();
+                    this.debouncedCalculate();
+                });
+            }
+        });
+    }
+
+    /**
+     * Load cost settings from localStorage
+     */
+    loadImplementationCosts() {
+        try {
+            const stored = localStorage.getItem('costSettings');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                this.implementationCosts = { setupFee: parsed.setupFee || 0, integrationFee: parsed.integrationFee || 0, trainingFee: parsed.trainingFee || 0 };
+                this.monthlySubscription = parsed.monthlySubscription || 0;
+            }
+        } catch (e) { /* use defaults */ }
+
+        const setupFee = document.getElementById('impl-setup-fee');
+        if (setupFee) setupFee.value = this.implementationCosts.setupFee || 0;
+        const intFee = document.getElementById('impl-integration-fee');
+        if (intFee) intFee.value = this.implementationCosts.integrationFee || 0;
+        const trainFee = document.getElementById('impl-training-fee');
+        if (trainFee) trainFee.value = this.implementationCosts.trainingFee || 0;
+        const subEl = document.getElementById('subscription-monthly');
+        if (subEl) subEl.value = this.monthlySubscription || 0;
+
+        this.updateCostDisplays();
+    }
+
+    /**
+     * Read cost settings from form and save
+     */
+    updateCostSettings() {
+        this.implementationCosts = {
+            setupFee: parseFloat(document.getElementById('impl-setup-fee')?.value) || 0,
+            integrationFee: parseFloat(document.getElementById('impl-integration-fee')?.value) || 0,
+            trainingFee: parseFloat(document.getElementById('impl-training-fee')?.value) || 0
+        };
+        this.monthlySubscription = parseFloat(document.getElementById('subscription-monthly')?.value) || 0;
+        try {
+            localStorage.setItem('costSettings', JSON.stringify({
+                ...this.implementationCosts,
+                monthlySubscription: this.monthlySubscription
+            }));
+        } catch (e) { /* ignore */ }
+        this.updateCostDisplays();
+    }
+
+    /**
+     * Update cost display fields
+     */
+    updateCostDisplays() {
+        const sym = this.calculator.getCurrencySymbol();
+        const implTotal = (this.implementationCosts.setupFee || 0)
+            + (this.implementationCosts.integrationFee || 0)
+            + (this.implementationCosts.trainingFee || 0);
+        const implEl = document.getElementById('impl-total-cost');
+        if (implEl) implEl.textContent = FormatUtils.formatCurrency(implTotal, 0, sym, true);
+        const subAnnualEl = document.getElementById('subscription-annual');
+        if (subAnnualEl) subAnnualEl.textContent = FormatUtils.formatCurrency(this.monthlySubscription * 12, 0, sym, true);
+    }
+
+    /**
+     * Get total one-off implementation cost
+     */
+    getTotalImplementationCost() {
+        return (this.implementationCosts.setupFee || 0)
+            + (this.implementationCosts.integrationFee || 0)
+            + (this.implementationCosts.trainingFee || 0);
+    }
+
+    /**
+     * Setup ROI projection settings listeners (ramp-up + growth rate)
+     */
+    setupROIProjectionListeners() {
+        const rampUpEl = document.getElementById('ramp-up-months');
+        if (rampUpEl) {
+            rampUpEl.addEventListener('input', () => {
+                this.rampUpMonths = parseInt(rampUpEl.value) || 0;
+                this.saveROIProjectionSettings();
+                this.debouncedCalculate();
+            });
+        }
+
+        const growthEl = document.getElementById('volume-growth-rate');
+        if (growthEl) {
+            growthEl.addEventListener('input', () => {
+                this.volumeGrowthRate = parseFloat(growthEl.value) || 0;
+                this.saveROIProjectionSettings();
+                this.debouncedCalculate();
+            });
+        }
+    }
+
+    /**
+     * Load ROI projection settings from localStorage
+     */
+    loadROIProjectionSettings() {
+        try {
+            const stored = localStorage.getItem('roiProjectionSettings');
+            if (stored) {
+                const settings = JSON.parse(stored);
+                this.rampUpMonths = settings.rampUpMonths ?? 2;
+                this.volumeGrowthRate = settings.volumeGrowthRate ?? 0;
+            }
+        } catch (e) { /* use defaults */ }
+
+        const rampUpEl = document.getElementById('ramp-up-months');
+        if (rampUpEl) rampUpEl.value = this.rampUpMonths;
+        const growthEl = document.getElementById('volume-growth-rate');
+        if (growthEl) growthEl.value = this.volumeGrowthRate;
+    }
+
+    /**
+     * Save ROI projection settings to localStorage
+     */
+    saveROIProjectionSettings() {
+        try {
+            localStorage.setItem('roiProjectionSettings', JSON.stringify({
+                rampUpMonths: this.rampUpMonths,
+                volumeGrowthRate: this.volumeGrowthRate
+            }));
+        } catch (e) { /* ignore */ }
     }
 
     /**
@@ -285,47 +609,11 @@ class TungstenROIApp {
                 this.calculator.updateCustomerInfo('paymentMethodDistribution.railPercent', railPercent);
                 this.calculator.updateCustomerInfo('paymentMethodDistribution.cardPercent', Math.round((100 - railPercent) * 100) / 100);
                 this.updatePaymentMethodDisplay();
-                this.updatePaymentTypeDisplay(); // Update rail type display since rail total changed
+                this.updatePaymentTypeDisplay();
                 this.debouncedCalculate();
             });
         }
 
-        // FX Tier 1 slider
-        const fxTier1Slider = document.getElementById('fx-tier1-slider');
-        if (fxTier1Slider) {
-            fxTier1Slider.addEventListener('input', (e) => {
-                const tier1Percent = Math.round(parseFloat(e.target.value) * 100) / 100;
-                this.calculator.adjustFXTiers(1, tier1Percent);
-                this.updateFXDistribution();
-                this.updateFXSliderValues();
-                this.debouncedCalculate();
-            });
-        }
-
-        // FX Tier 2 slider
-        const fxTier2Slider = document.getElementById('fx-tier2-slider');
-        if (fxTier2Slider) {
-            fxTier2Slider.addEventListener('input', (e) => {
-                const tier2Percent = Math.round(parseFloat(e.target.value) * 100) / 100;
-                this.calculator.adjustFXTiers(2, tier2Percent);
-                this.updateFXDistribution();
-                this.updateFXSliderValues();
-                this.debouncedCalculate();
-            });
-        }
-
-        // FX Tier 3 slider
-        const fxTier3Slider = document.getElementById('fx-tier3-slider');
-        if (fxTier3Slider) {
-            fxTier3Slider.addEventListener('input', (e) => {
-                const tier3Percent = Math.round(parseFloat(e.target.value) * 100) / 100;
-                this.calculator.adjustFXTiers(3, tier3Percent);
-                this.updateFXDistribution();
-                this.updateFXSliderValues();
-                this.debouncedCalculate();
-            });
-        }
-        
         // FX share slider - percentage of cross-border rail payments
         const fxShareSlider = document.getElementById('fx-share-slider');
         if (fxShareSlider) {
@@ -334,7 +622,6 @@ class TungstenROIApp {
                 this.calculator.updateCustomerInfo('fxPercentOfCrossBorder', fxPercent);
                 
                 this.updateFXShareDisplay();
-                this.updateFXDistribution();
                 this.debouncedCalculate();
             });
         }
@@ -356,56 +643,35 @@ class TungstenROIApp {
      */
     setupFeeListeners() {
         // Tungsten fees
-        const tungstenFeeIds = [
-            'tungsten-local-fee',
-            'tungsten-crossborder-fee',
-            'tungsten-fx-tier1',
-            'tungsten-fx-tier2',
-            'tungsten-fx-tier3',
-            'tungsten-card-rebate'
-        ];
-
-        const tungstenFeeFields = {
+        const tungstenFeeMap = {
             'tungsten-local-fee': 'localRail',
             'tungsten-crossborder-fee': 'crossBorder',
-            'tungsten-fx-tier1': 'fxMargins.tier1',
-            'tungsten-fx-tier2': 'fxMargins.tier2',
-            'tungsten-fx-tier3': 'fxMargins.tier3',
+            'tungsten-fx-margin': 'fxMargin',
             'tungsten-card-rebate': 'cardRebate'
         };
 
-        tungstenFeeIds.forEach(id => {
+        Object.entries(tungstenFeeMap).forEach(([id, field]) => {
             const input = document.getElementById(id);
             if (input) {
                 input.addEventListener('input', (e) => {
-                    this.calculator.updateFee('tungsten', tungstenFeeFields[id], e.target.value);
+                    this.calculator.updateFee('tungsten', field, e.target.value);
                     this.debouncedCalculate();
                 });
             }
         });
 
         // Current provider fees
-        const currentFeeIds = [
-            'current-local-fee',
-            'current-crossborder-fee',
-            'current-fx-tier1',
-            'current-fx-tier2',
-            'current-fx-tier3'
-        ];
-
-        const currentFeeFields = {
+        const currentFeeMap = {
             'current-local-fee': 'localRail',
             'current-crossborder-fee': 'crossBorder',
-            'current-fx-tier1': 'fxMargins.tier1',
-            'current-fx-tier2': 'fxMargins.tier2',
-            'current-fx-tier3': 'fxMargins.tier3'
+            'current-fx-margin': 'fxMargin'
         };
 
-        currentFeeIds.forEach(id => {
+        Object.entries(currentFeeMap).forEach(([id, field]) => {
             const input = document.getElementById(id);
             if (input) {
                 input.addEventListener('input', (e) => {
-                    this.calculator.updateFee('currentProvider', currentFeeFields[id], e.target.value);
+                    this.calculator.updateFee('currentProvider', field, e.target.value);
                     this.debouncedCalculate();
                 });
             }
@@ -548,11 +814,6 @@ class TungstenROIApp {
         const totalCountEl = document.getElementById('total-payment-count');
         if (totalCountEl) totalCountEl.value = FormatUtils.formatNumberWithCommas(data.customerInfo.totalPaymentCount);
         
-        const fxVolumeEl = document.getElementById('fx-volume');
-        if (fxVolumeEl) fxVolumeEl.value = FormatUtils.formatNumberWithCommas(data.customerInfo.fxVolume.total);
-        
-        const implCostEl = document.getElementById('implementation-cost');
-        if (implCostEl) implCostEl.value = FormatUtils.formatNumberWithCommas(data.customerInfo.implementationCost);
         
         // WACC input
         const waccInput = document.getElementById('wacc-input');
@@ -564,34 +825,28 @@ class TungstenROIApp {
         
         const paymentMethodSlider = document.getElementById('payment-method-slider');
         if (paymentMethodSlider) paymentMethodSlider.value = data.customerInfo.paymentMethodDistribution.railPercent;
-        
-        const fxTier1Slider = document.getElementById('fx-tier1-slider');
-        if (fxTier1Slider) fxTier1Slider.value = data.customerInfo.fxVolume.distribution.tier1Percent;
-        
-        const fxTier2Slider = document.getElementById('fx-tier2-slider');
-        if (fxTier2Slider) fxTier2Slider.value = data.customerInfo.fxVolume.distribution.tier2Percent;
-        
-        const fxTier3Slider = document.getElementById('fx-tier3-slider');
-        if (fxTier3Slider) fxTier3Slider.value = data.customerInfo.fxVolume.distribution.tier3Percent;
-        
+
         // FX share slider
         const fxShareSlider = document.getElementById('fx-share-slider');
         if (fxShareSlider) fxShareSlider.value = data.customerInfo.fxPercentOfCrossBorder || 50;
         
         // Tungsten fees
-        document.getElementById('tungsten-local-fee').value = data.fees.tungsten.localRailFee;
-        document.getElementById('tungsten-crossborder-fee').value = data.fees.tungsten.crossBorderFee;
-        document.getElementById('tungsten-fx-tier1').value = data.fees.tungsten.fxMargins.tier1;
-        document.getElementById('tungsten-fx-tier2').value = data.fees.tungsten.fxMargins.tier2;
-        document.getElementById('tungsten-fx-tier3').value = data.fees.tungsten.fxMargins.tier3;
-        document.getElementById('tungsten-card-rebate').value = data.fees.tungsten.cardRebate;
-        
+        const tungstenLocalEl = document.getElementById('tungsten-local-fee');
+        if (tungstenLocalEl) tungstenLocalEl.value = data.fees.tungsten.localRailFee;
+        const tungstenCbEl = document.getElementById('tungsten-crossborder-fee');
+        if (tungstenCbEl) tungstenCbEl.value = data.fees.tungsten.crossBorderFee;
+        const tungstenFxEl = document.getElementById('tungsten-fx-margin');
+        if (tungstenFxEl) tungstenFxEl.value = data.fees.tungsten.fxMargin;
+        const tungstenRebateEl = document.getElementById('tungsten-card-rebate');
+        if (tungstenRebateEl) tungstenRebateEl.value = data.fees.tungsten.cardRebate;
+
         // Current provider fees
-        document.getElementById('current-local-fee').value = data.fees.currentProvider.localRailFee;
-        document.getElementById('current-crossborder-fee').value = data.fees.currentProvider.crossBorderFee;
-        document.getElementById('current-fx-tier1').value = data.fees.currentProvider.fxMargins.tier1;
-        document.getElementById('current-fx-tier2').value = data.fees.currentProvider.fxMargins.tier2;
-        document.getElementById('current-fx-tier3').value = data.fees.currentProvider.fxMargins.tier3;
+        const curLocalEl = document.getElementById('current-local-fee');
+        if (curLocalEl) curLocalEl.value = data.fees.currentProvider.localRailFee;
+        const curCbEl = document.getElementById('current-crossborder-fee');
+        if (curCbEl) curCbEl.value = data.fees.currentProvider.crossBorderFee;
+        const curFxEl = document.getElementById('current-fx-margin');
+        if (curFxEl) curFxEl.value = data.fees.currentProvider.fxMargin;
         
         // Card rebate slider (current provider only)
         const currentCardRebateSlider = document.getElementById('current-card-rebate-slider');
@@ -607,7 +862,6 @@ class TungstenROIApp {
         this.updateAverageTransactionSize();
         this.updatePaymentTypeDisplay();
         this.updatePaymentMethodDisplay();
-        this.updateFXDistribution();
         this.updateFXShareDisplay();
         this.updateCardRebateDisplay();
         this.updateAllCurrencySymbols();
@@ -631,55 +885,6 @@ class TungstenROIApp {
             currentSlider.style.background = `linear-gradient(to right, var(--tungsten-primary) 0%, var(--tungsten-primary) ${percent}%, var(--gray-300) ${percent}%, var(--gray-300) 100%)`;
         }
     }
-
-    /**
-     * Update FX distribution display
-     */
-    updateFXDistribution() {
-        const fxVolumes = this.calculator.calculateFXVolumes();
-        const dist = this.calculator.data.customerInfo.fxVolume.distribution;
-        
-        // Update Tier 1
-        document.getElementById('fx-tier1-percent').textContent = 
-            FormatUtils.formatPercent(dist.tier1Percent, 0);
-        document.getElementById('fx-tier1-amount').textContent = 
-            FormatUtils.formatCurrency(fxVolumes.tier1, 0);
-        
-        // Update Tier 2
-        document.getElementById('fx-tier2-percent').textContent = 
-            FormatUtils.formatPercent(dist.tier2Percent, 0);
-        document.getElementById('fx-tier2-amount').textContent = 
-            FormatUtils.formatCurrency(fxVolumes.tier2, 0);
-        
-        // Update Tier 3
-        document.getElementById('fx-tier3-percent').textContent = 
-            FormatUtils.formatPercent(dist.tier3Percent, 0);
-        document.getElementById('fx-tier3-amount').textContent = 
-            FormatUtils.formatCurrency(fxVolumes.tier3, 0);
-        
-        // Update slider displays - monochrome with rounded values
-        const tier1Slider = document.getElementById('fx-tier1-slider');
-        if (tier1Slider) {
-            const percent1 = Math.round(dist.tier1Percent * 100) / 100;
-            tier1Slider.style.background = `linear-gradient(to right, var(--tungsten-primary) 0%, var(--tungsten-primary) ${percent1}%, var(--gray-300) ${percent1}%, var(--gray-300) 100%)`;
-        }
-        
-        const tier2Slider = document.getElementById('fx-tier2-slider');
-        if (tier2Slider) {
-            const percent2 = Math.round(dist.tier2Percent * 100) / 100;
-            tier2Slider.style.background = `linear-gradient(to right, var(--gray-500) 0%, var(--gray-500) ${percent2}%, var(--gray-300) ${percent2}%, var(--gray-300) 100%)`;
-        }
-
-        const tier3Slider = document.getElementById('fx-tier3-slider');
-        if (tier3Slider) {
-            const percent3 = Math.round(dist.tier3Percent * 100) / 100;
-            tier3Slider.style.background = `linear-gradient(to right, var(--gray-600) 0%, var(--gray-600) ${percent3}%, var(--gray-300) ${percent3}%, var(--gray-300) 100%)`;
-        }
-    }
-
-    /**
-     * Update FX slider values to match calculator data
-     */
 
     /**
      * Setup settings toggle
@@ -721,10 +926,10 @@ class TungstenROIApp {
         if (nonFxPercentEl) nonFxPercentEl.textContent = FormatUtils.formatPercent(nonFxPercent, 0);
         
         // Update calculated FX amount display
-        const fxVolumes = this.calculator.calculateFXVolumes();
+        const fxVolume = this.calculator.calculateFXVolume();
         const fxAmountEl = document.getElementById('fx-calculated-amount');
         if (fxAmountEl) {
-            fxAmountEl.textContent = FormatUtils.formatCurrency(fxVolumes.total, 1, this.calculator.getCurrencySymbol());
+            fxAmountEl.textContent = FormatUtils.formatCurrency(fxVolume, 1, this.calculator.getCurrencySymbol());
         }
         
         // Update slider gradient with rounded value
@@ -763,14 +968,12 @@ class TungstenROIApp {
      */
     calculate() {
         if (this.isCalculating) return;
-        
+
         this.isCalculating = true;
         this.showLoading();
-        
-        // Use setTimeout to allow UI to update
+
         setTimeout(() => {
             try {
-                // Validate data
                 const validation = this.calculator.validate();
                 if (!validation.valid) {
                     this.showToast(validation.errors[0], 'error');
@@ -778,19 +981,44 @@ class TungstenROIApp {
                     this.isCalculating = false;
                     return;
                 }
-                
-                // Get results
-                const results = this.calculator.getResults();
-                
+
+                // Build options based on mode
+                const options = {};
+                // Both modes get cumulative ROI
+                options.includeCumulativeROI = true;
+                options.cumulativeROIOptions = {
+                    implementationCost: this.getTotalImplementationCost(),
+                    monthlySubscription: this.monthlySubscription || 0,
+                    rampUpMonths: this.rampUpMonths,
+                    volumeGrowthRate: this.volumeGrowthRate
+                };
+
+                if (this.calculatorMode === 'partner-reseller') {
+                    options.includePartnerUpside = true;
+                    options.partnerConfig = this.partnerConfig;
+                }
+
+                const results = this.calculator.getResults(options);
+
                 // Update summary cards
                 this.updateSummaryCards(results);
-                
+
                 // Update charts
                 this.chartsManager.updateCharts(results);
-                
-                // Store current results
+
+                // Update cumulative ROI chart (direct-to-client)
+                if (results.cumulativeROI) {
+                    this.chartsManager.updateCumulativeROIChart(results.cumulativeROI);
+                    this.updateBreakEvenBadge(results.cumulativeROI);
+                }
+
+                // Update partner upside section (partner-reseller)
+                if (results.partnerUpside) {
+                    this.updatePartnerUpsideSection(results);
+                }
+
                 this.currentResults = results;
-                
+
                 this.hideLoading();
                 this.isCalculating = false;
             } catch (error) {
@@ -800,6 +1028,71 @@ class TungstenROIApp {
                 this.isCalculating = false;
             }
         }, 50);
+    }
+
+    /**
+     * Update break-even badge
+     */
+    updateBreakEvenBadge(cumulativeROIData) {
+        const badge = document.getElementById('break-even-badge');
+        const text = document.getElementById('break-even-text');
+        if (!badge || !text) return;
+
+        const hasImplCost = cumulativeROIData.implementationCost > 0;
+
+        const growthNote = cumulativeROIData.volumeGrowthRate > 0
+            ? ` | ${cumulativeROIData.volumeGrowthRate}% annual growth`
+            : '';
+
+        if (hasImplCost && cumulativeROIData.breakEvenPeriod) {
+            badge.style.display = 'inline-flex';
+            const symbol = this.calculator.getCurrencySymbol();
+            text.textContent = `ROI break-even in Month ${cumulativeROIData.breakEvenPeriod} (${symbol}${FormatUtils.formatNumber(cumulativeROIData.implementationCost, 0)} impl. cost${growthNote})`;
+        } else if (hasImplCost && !cumulativeROIData.breakEvenPeriod) {
+            badge.style.display = 'inline-flex';
+            text.textContent = `Break-even not reached within 12 months${growthNote}`;
+        } else {
+            badge.style.display = 'inline-flex';
+            text.textContent = `Savings start from Month 1${growthNote}`;
+        }
+    }
+
+    /**
+     * Update partner upside section
+     */
+    updatePartnerUpsideSection(results) {
+        const symbol = results.currencySymbol;
+        const upside = results.partnerUpside;
+
+        // SPIFF card
+        const spiffCard = document.getElementById('spiff-card');
+        if (spiffCard) {
+            spiffCard.style.display = upside.spiff.enabled ? '' : 'none';
+            const spiffVal = document.getElementById('partner-spiff-value');
+            if (spiffVal) spiffVal.textContent = FormatUtils.formatCurrency(upside.spiff.value, 0, symbol, true);
+        }
+
+        // Bulk buy card
+        const bulkCard = document.getElementById('bulk-buy-card');
+        if (bulkCard) {
+            bulkCard.style.display = upside.bulkBuy.enabled ? '' : 'none';
+            const bulkVal = document.getElementById('partner-bulk-value');
+            if (bulkVal) bulkVal.textContent = FormatUtils.formatCurrency(upside.bulkBuy.annualRevShare, 0, symbol, true);
+            const bulkUpfront = document.getElementById('partner-bulk-upfront');
+            if (bulkUpfront) bulkUpfront.textContent = upside.bulkBuy.upfrontCost > 0 ? `Upfront cost: ${FormatUtils.formatCurrency(upside.bulkBuy.upfrontCost, 0, symbol, true)}` : '';
+        }
+
+        // Revenue share card
+        const revCard = document.getElementById('revenue-share-card');
+        if (revCard) {
+            revCard.style.display = upside.revenueShare.enabled ? '' : 'none';
+            const revVal = document.getElementById('partner-revenue-value');
+            if (revVal) revVal.textContent = FormatUtils.formatCurrency(upside.revenueShare.value, 0, symbol, true);
+        }
+
+        // Total upside
+        const totalUpside = document.getElementById('partner-total-upside');
+        if (totalUpside) totalUpside.textContent = FormatUtils.formatCurrency(upside.totalAnnualUpside, 0, symbol, true);
     }
 
     /**
@@ -903,11 +1196,31 @@ class TungstenROIApp {
             this.showToast('Please calculate results first', 'warning');
             return;
         }
-        
+
         this.showLoading('Generating PDF...');
-        
+
         try {
-            await this.pdfExporter.generatePDF(this.currentResults);
+            // Ensure results panel is visible for chart capture
+            const resultsPanel = document.getElementById('results-panel');
+            const wasHidden = !resultsPanel?.classList.contains('active');
+            if (wasHidden && resultsPanel) {
+                resultsPanel.style.display = 'block';
+                resultsPanel.style.position = 'absolute';
+                resultsPanel.style.left = '-9999px';
+            }
+
+            await this.pdfExporter.generatePDF(this.currentResults, {
+                mode: this.calculatorMode,
+                partnerConfig: this.partnerConfig
+            });
+
+            // Restore results panel
+            if (wasHidden && resultsPanel) {
+                resultsPanel.style.display = '';
+                resultsPanel.style.position = '';
+                resultsPanel.style.left = '';
+            }
+
             this.showToast('PDF exported successfully', 'success');
         } catch (error) {
             console.error('PDF export error:', error);
@@ -1051,33 +1364,8 @@ class TungstenROIApp {
             this.calculator.updateCustomerInfo('paymentTypeDistribution.crossBorderPercent', Math.round((100 - value) * 100) / 100);
             this.updatePaymentTypeDisplay();
         } else if (sliderId === 'fx-share-slider') {
-            this.calculator.updateCustomerInfo('fxPaymentSharePercent', value);
-            
-            // Update FX volume based on total payment value and FX percentage
-            const totalValue = this.calculator.data.customerInfo.totalPaymentValue;
-            const newFxVolume = Math.round((totalValue * value / 100) * 100) / 100;
-            this.calculator.updateCustomerInfo('fxVolume.total', newFxVolume);
-            
-            // Update FX volume input field
-            const fxVolumeInput = document.getElementById('fx-volume');
-            if (fxVolumeInput) {
-                fxVolumeInput.value = FormatUtils.formatNumberWithCommas(newFxVolume);
-            }
-            
+            this.calculator.updateCustomerInfo('fxPercentOfCrossBorder', value);
             this.updateFXShareDisplay();
-            this.updateFXDistribution();
-        } else if (sliderId === 'fx-tier1-slider') {
-            this.calculator.adjustFXTiers(1, value);
-            this.updateFXDistribution();
-            this.updateFXSliderValues();
-        } else if (sliderId === 'fx-tier2-slider') {
-            this.calculator.adjustFXTiers(2, value);
-            this.updateFXDistribution();
-            this.updateFXSliderValues();
-        } else if (sliderId === 'fx-tier3-slider') {
-            this.calculator.adjustFXTiers(3, value);
-            this.updateFXDistribution();
-            this.updateFXSliderValues();
         } else if (sliderId === 'current-card-rebate-slider') {
             this.calculator.updateFee('currentProvider', 'cardRebate', value);
             this.updateCardRebateDisplay();
