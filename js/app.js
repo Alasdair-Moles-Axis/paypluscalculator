@@ -795,8 +795,8 @@ class TungstenROIApp {
         document.querySelectorAll('.input-prefix.currency-symbol').forEach(el => {
             el.textContent = symbol;
         });
-        // Update currency labels in form labels e.g. "Setup fee ($)"
-        document.querySelectorAll('.currency-label').forEach(el => {
+        // Update currency labels in form labels e.g. "Setup fee ($)" — exclude currency selector
+        document.querySelectorAll('.currency-label:not(.currency-selector .currency-label)').forEach(el => {
             el.textContent = symbol;
         });
     }
