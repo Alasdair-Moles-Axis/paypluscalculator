@@ -89,14 +89,13 @@ class PDFExporter {
 
             let tungstenLogo = (typeof CONFIG !== 'undefined' && CONFIG.pdfLogos) ? CONFIG.pdfLogos.tungstenLogo : null;
             if (!tungstenLogo) tungstenLogo = await this.loadImageAsBase64('assets/tungsten_logo.jpg');
-            let payPlusLogo = await this.loadImageAsBase64('assets/logo.png');
 
             let y = this.margin;
 
             // ── HEADER ──
-            // Logo (top-right)
-            if (payPlusLogo) {
-                try { doc.addImage(payPlusLogo, 'PNG', this.pageWidth - this.margin - 30, y - 2, 30, 12); } catch(e) {}
+            // Tungsten Automation logo (top-right)
+            if (tungstenLogo) {
+                try { doc.addImage(tungstenLogo, 'JPEG', this.pageWidth - this.margin - 50, y - 4, 50, 14); } catch(e) {}
             }
             doc.setFontSize(18);
             doc.setTextColor(...this.colors.primary);
@@ -109,7 +108,7 @@ class PDFExporter {
             doc.setFontSize(8);
             doc.setTextColor(...this.colors.lightGray);
             doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-                this.pageWidth - this.margin, y + 12, { align: 'right' });
+                this.margin, y + 10);
             y += 10;
             doc.setDrawColor(...this.colors.veryLightGray);
             doc.setLineWidth(0.5);
@@ -312,7 +311,7 @@ class PDFExporter {
             }
 
             // ── FOOTER ──
-            this.addFooter(doc, tungstenLogo);
+            this.addFooter(doc);
 
             const modePrefix = mode === 'partner-reseller' ? 'Partner_' : '';
             doc.save(`Tungsten_${modePrefix}Payments_Analysis_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -503,7 +502,7 @@ class PDFExporter {
     /**
      * Add footer with Tungsten logo
      */
-    addFooter(doc, tungstenLogo) {
+    addFooter(doc) {
         const pdfText = (typeof CONFIG !== 'undefined' && CONFIG.pdfText) ? CONFIG.pdfText : {};
         const footerY = this.pageHeight - 8;
 
@@ -519,14 +518,6 @@ class PDFExporter {
         doc.setFontSize(6);
         doc.text(pdfText.footerDisclaimer || 'This analysis is for informational purposes only. Actual savings may vary based on transaction volumes and patterns.',
             this.margin, footerY + 3);
-
-        if (tungstenLogo) {
-            try {
-                doc.addImage(tungstenLogo, 'JPEG', (this.pageWidth - 40) / 2, this.pageHeight - 15, 40, 10);
-            } catch (e) {
-                console.warn('Could not add logo:', e);
-            }
-        }
     }
 }
 

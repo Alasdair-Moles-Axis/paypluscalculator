@@ -791,13 +791,13 @@ class TungstenROIApp {
      */
     updateAllCurrencySymbols() {
         const symbol = this.calculator.getCurrencySymbol();
-        // Only update input field symbols, not the currency selector symbols
+        // Update input field prefix symbols (not the currency selector symbols)
         document.querySelectorAll('.input-prefix.currency-symbol').forEach(el => {
             el.textContent = symbol;
         });
-        // Update currency value displays
-        document.querySelectorAll('.currency-value').forEach(el => {
-            // These are already formatted with symbols, no need to update
+        // Update currency labels in form labels e.g. "Setup fee ($)"
+        document.querySelectorAll('.currency-label').forEach(el => {
+            el.textContent = symbol;
         });
     }
 
