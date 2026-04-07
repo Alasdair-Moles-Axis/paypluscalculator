@@ -1454,6 +1454,22 @@ body {
     margin: var(--space-5) 0;
 }
 
+/* Margin Config Group (admin-only, confidential) */
+.margin-config-group {
+    padding: 12px;
+    background: #FFF7ED;
+    border: 1px solid #FDBA74;
+    border-radius: 8px;
+    margin-top: 12px;
+}
+
+.margin-config-group h5 {
+    font-size: 13px;
+    color: var(--tungsten-primary);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
 /* ============================================
    Break-Even Badge
    ============================================ */

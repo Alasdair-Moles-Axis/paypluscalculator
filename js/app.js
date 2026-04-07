@@ -48,13 +48,15 @@ class TungstenROIApp {
         // Setup logo triple-click toggle
         this.setupLogoToggle();
 
-        // Setup mode toggle, partner config, and implementation costs
+        // Setup mode toggle, partner config, implementation costs, and margin costs
         this.setupModeToggle();
         this.setupPartnerConfigListeners();
         this.setupImplementationCostListeners();
         this.loadImplementationCosts();
         this.setupROIProjectionListeners();
         this.loadROIProjectionSettings();
+        this.loadMarginCosts();
+        this.setupMarginCostListeners();
 
         // Apply saved mode
         this.applyCalculatorMode();
@@ -260,10 +262,20 @@ class TungstenROIApp {
 
         const bulkEnabled = document.getElementById('bulk-buy-enabled');
         if (bulkEnabled) bulkEnabled.checked = config.bulkBuy?.enabled || false;
-        const bulkUpfront = document.getElementById('bulk-buy-upfront-cost');
-        if (bulkUpfront) bulkUpfront.value = config.bulkBuy?.upfrontCost || 10000;
-        const bulkRevShare = document.getElementById('bulk-buy-rev-share');
-        if (bulkRevShare) bulkRevShare.value = config.bulkBuy?.enhancedRevShare || 20;
+        const bulkNumLicenses = document.getElementById('bulk-buy-num-licenses');
+        if (bulkNumLicenses) bulkNumLicenses.value = config.bulkBuy?.numberOfLicenses || 10;
+        const bulkCostPerLicense = document.getElementById('bulk-buy-cost-per-license');
+        if (bulkCostPerLicense) bulkCostPerLicense.value = config.bulkBuy?.costPerLicense || 1000;
+        const bulkMarginShare = document.getElementById('bulk-buy-margin-share');
+        if (bulkMarginShare) bulkMarginShare.value = config.bulkBuy?.marginSharePercent || 20;
+        // Ramp-up schedule
+        const rampIds = ['ramp-q1', 'ramp-q2', 'ramp-q3', 'ramp-q4'];
+        const rampSchedule = config.bulkBuy?.rampUpSchedule || [2, 4, 6, 8];
+        rampIds.forEach((id, i) => {
+            const el = document.getElementById(id);
+            if (el) el.value = rampSchedule[i] || 0;
+        });
+        this.updateBulkBuyTotalCost();
         this.toggleMechanismConfig('bulk-buy-enabled', 'bulk-buy-config');
 
         const revEnabled = document.getElementById('revenue-share-enabled');
@@ -308,7 +320,8 @@ class TungstenROIApp {
 
         // All partner config inputs
         const partnerInputIds = [
-            'spiff-amount', 'bulk-buy-upfront-cost', 'bulk-buy-rev-share',
+            'spiff-amount', 'bulk-buy-num-licenses', 'bulk-buy-cost-per-license',
+            'bulk-buy-margin-share', 'ramp-q1', 'ramp-q2', 'ramp-q3', 'ramp-q4',
             'revenue-share-percent'
         ];
 
@@ -317,6 +330,7 @@ class TungstenROIApp {
             if (el) {
                 el.addEventListener('input', () => {
                     this.updatePartnerConfig();
+                    this.updateBulkBuyTotalCost();
                     this.debouncedCalculate();
                 });
             }
@@ -334,8 +348,15 @@ class TungstenROIApp {
             },
             bulkBuy: {
                 enabled: document.getElementById('bulk-buy-enabled')?.checked || false,
-                upfrontCost: parseFloat(document.getElementById('bulk-buy-upfront-cost')?.value) || 0,
-                enhancedRevShare: parseFloat(document.getElementById('bulk-buy-rev-share')?.value) || 0
+                numberOfLicenses: parseInt(document.getElementById('bulk-buy-num-licenses')?.value) || 0,
+                costPerLicense: parseFloat(document.getElementById('bulk-buy-cost-per-license')?.value) || 0,
+                marginSharePercent: parseFloat(document.getElementById('bulk-buy-margin-share')?.value) || 0,
+                rampUpSchedule: [
+                    parseInt(document.getElementById('ramp-q1')?.value) || 0,
+                    parseInt(document.getElementById('ramp-q2')?.value) || 0,
+                    parseInt(document.getElementById('ramp-q3')?.value) || 0,
+                    parseInt(document.getElementById('ramp-q4')?.value) || 0
+                ]
             },
             revenueShare: {
                 enabled: document.getElementById('revenue-share-enabled')?.checked || false,
@@ -343,6 +364,17 @@ class TungstenROIApp {
             }
         };
         this.storageManager.setPartnerConfig(this.partnerConfig);
+    }
+
+    /**
+     * Update bulk buy total cost display
+     */
+    updateBulkBuyTotalCost() {
+        const sym = this.calculator.getCurrencySymbol();
+        const licenses = parseInt(document.getElementById('bulk-buy-num-licenses')?.value) || 0;
+        const costPer = parseFloat(document.getElementById('bulk-buy-cost-per-license')?.value) || 0;
+        const totalEl = document.getElementById('bulk-buy-total-cost');
+        if (totalEl) totalEl.textContent = FormatUtils.formatCurrency(licenses * costPer, 0, sym, true);
     }
 
     /**
@@ -425,6 +457,109 @@ class TungstenROIApp {
         return (this.implementationCosts.setupFee || 0)
             + (this.implementationCosts.integrationFee || 0)
             + (this.implementationCosts.trainingFee || 0);
+    }
+
+    /**
+     * Load margin costs from storage and push into calculator
+     */
+    loadMarginCosts() {
+        this.marginCosts = this.storageManager.getMarginCosts();
+        // Push into calculator data
+        for (const channel of ['directToClient', 'partner']) {
+            const costs = this.marginCosts[channel];
+            if (costs) {
+                for (const [field, value] of Object.entries(costs)) {
+                    this.calculator.updateCost(channel, field, value);
+                }
+            }
+        }
+        // Restore input values
+        this.restoreMarginCostInputs();
+    }
+
+    /**
+     * Restore margin cost input values from loaded data
+     */
+    restoreMarginCostInputs() {
+        const dtc = this.marginCosts?.directToClient || {};
+        const partner = this.marginCosts?.partner || {};
+
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || 0; };
+        setVal('dtc-local-cost', dtc.localRailCost);
+        setVal('dtc-crossborder-cost', dtc.crossBorderCost);
+        setVal('dtc-fx-cost', dtc.fxCostPercent);
+        setVal('partner-local-cost', partner.localRailCost);
+        setVal('partner-crossborder-cost', partner.crossBorderCost);
+        setVal('partner-fx-cost', partner.fxCostPercent);
+
+        this.updateMarginDisplays();
+    }
+
+    /**
+     * Setup listeners for margin cost inputs
+     */
+    setupMarginCostListeners() {
+        const marginInputs = [
+            { id: 'dtc-local-cost', channel: 'directToClient', field: 'localRailCost' },
+            { id: 'dtc-crossborder-cost', channel: 'directToClient', field: 'crossBorderCost' },
+            { id: 'dtc-fx-cost', channel: 'directToClient', field: 'fxCostPercent' },
+            { id: 'partner-local-cost', channel: 'partner', field: 'localRailCost' },
+            { id: 'partner-crossborder-cost', channel: 'partner', field: 'crossBorderCost' },
+            { id: 'partner-fx-cost', channel: 'partner', field: 'fxCostPercent' }
+        ];
+
+        marginInputs.forEach(({ id, channel, field }) => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', () => {
+                    const value = parseFloat(el.value) || 0;
+                    this.calculator.updateCost(channel, field, value);
+                    this.saveMarginCosts();
+                    this.updateMarginDisplays();
+                    this.debouncedCalculate();
+                });
+            }
+        });
+    }
+
+    /**
+     * Save margin costs to storage
+     */
+    saveMarginCosts() {
+        this.marginCosts = {
+            directToClient: {
+                localRailCost: parseFloat(document.getElementById('dtc-local-cost')?.value) || 0,
+                crossBorderCost: parseFloat(document.getElementById('dtc-crossborder-cost')?.value) || 0,
+                fxCostPercent: parseFloat(document.getElementById('dtc-fx-cost')?.value) || 0
+            },
+            partner: {
+                localRailCost: parseFloat(document.getElementById('partner-local-cost')?.value) || 0,
+                crossBorderCost: parseFloat(document.getElementById('partner-crossborder-cost')?.value) || 0,
+                fxCostPercent: parseFloat(document.getElementById('partner-fx-cost')?.value) || 0
+            }
+        };
+        this.storageManager.setMarginCosts(this.marginCosts);
+    }
+
+    /**
+     * Update margin display fields (admin-only calculated margins per unit)
+     */
+    updateMarginDisplays() {
+        const sym = this.calculator.getCurrencySymbol();
+
+        for (const channel of ['directToClient', 'partner']) {
+            const margin = this.calculator.calculateTungstenMargin(channel);
+            const prefix = channel === 'directToClient' ? 'dtc' : 'partner';
+
+            const localEl = document.getElementById(`${prefix}-local-margin`);
+            if (localEl) localEl.textContent = FormatUtils.formatCurrency(margin.perUnit.localRailMargin, 2, sym, false);
+
+            const xborderEl = document.getElementById(`${prefix}-crossborder-margin`);
+            if (xborderEl) xborderEl.textContent = FormatUtils.formatCurrency(margin.perUnit.crossBorderMargin, 2, sym, false);
+
+            const fxEl = document.getElementById(`${prefix}-fx-margin-display`);
+            if (fxEl) fxEl.textContent = `${margin.perUnit.fxMarginPercent.toFixed(2)}%`;
+        }
     }
 
     /**
@@ -699,6 +834,12 @@ class TungstenROIApp {
         if (exportBtn) {
             exportBtn.addEventListener('click', () => this.exportPDF());
         }
+
+        // Export Reseller PDF button
+        const resellerPdfBtn = document.getElementById('export-reseller-pdf-btn');
+        if (resellerPdfBtn) {
+            resellerPdfBtn.addEventListener('click', () => this.exportResellerPDF());
+        }
     }
 
 
@@ -783,6 +924,8 @@ class TungstenROIApp {
         this.calculator.changeCurrency(newCurrency);
         this.updateAllCurrencySymbols();
         this.updateAllInputs();
+        this.restoreMarginCostInputs();
+        this.updateBulkBuyTotalCost();
         this.calculate();
     }
 
@@ -996,6 +1139,7 @@ class TungstenROIApp {
                 if (this.calculatorMode === 'partner-reseller') {
                     options.includePartnerUpside = true;
                     options.partnerConfig = this.partnerConfig;
+                    options.includeMarginDetails = true;
                 }
 
                 const results = this.calculator.getResults(options);
@@ -1077,9 +1221,19 @@ class TungstenROIApp {
         if (bulkCard) {
             bulkCard.style.display = upside.bulkBuy.enabled ? '' : 'none';
             const bulkVal = document.getElementById('partner-bulk-value');
-            if (bulkVal) bulkVal.textContent = FormatUtils.formatCurrency(upside.bulkBuy.annualRevShare, 0, symbol, true);
+            if (bulkVal) bulkVal.textContent = FormatUtils.formatCurrency(upside.bulkBuy.annualMarginShare || 0, 0, symbol, true);
             const bulkUpfront = document.getElementById('partner-bulk-upfront');
-            if (bulkUpfront) bulkUpfront.textContent = upside.bulkBuy.upfrontCost > 0 ? `Upfront cost: ${FormatUtils.formatCurrency(upside.bulkBuy.upfrontCost, 0, symbol, true)}` : '';
+            if (bulkUpfront) bulkUpfront.textContent = upside.bulkBuy.upfrontCost > 0
+                ? `Upfront: ${FormatUtils.formatCurrency(upside.bulkBuy.upfrontCost, 0, symbol, true)} (${upside.bulkBuy.numberOfLicenses} licenses)`
+                : '';
+            const bulkRoi = document.getElementById('partner-bulk-roi');
+            if (bulkRoi) bulkRoi.textContent = upside.bulkBuy.roiPercent != null
+                ? `ROI: ${upside.bulkBuy.roiPercent.toFixed(1)}%`
+                : '';
+            const bulkPayback = document.getElementById('partner-bulk-payback');
+            if (bulkPayback) bulkPayback.textContent = upside.bulkBuy.paybackMonths
+                ? `Payback: ${upside.bulkBuy.paybackMonths} months`
+                : '';
         }
 
         // Revenue share card
@@ -1225,6 +1379,30 @@ class TungstenROIApp {
         } catch (error) {
             console.error('PDF export error:', error);
             this.showToast('Error exporting PDF', 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    /**
+     * Export Reseller Summary PDF (partner earnings only, no margin data)
+     */
+    async exportResellerPDF() {
+        if (!this.currentResults || !this.currentResults.partnerUpside) {
+            this.showToast('Please calculate partner results first', 'warning');
+            return;
+        }
+
+        this.showLoading('Generating Reseller PDF...');
+
+        try {
+            await this.pdfExporter.generateResellerPDF(this.currentResults, {
+                partnerConfig: this.partnerConfig
+            });
+            this.showToast('Reseller PDF exported successfully', 'success');
+        } catch (error) {
+            console.error('Reseller PDF export error:', error);
+            this.showToast('Error exporting Reseller PDF', 'error');
         } finally {
             this.hideLoading();
         }

@@ -418,8 +418,11 @@ class PDFExporter {
         const items = [];
         if (u.spiff.enabled) items.push({ label: 'SPIFF (one-time)', value: this.pdfCurrency(u.spiff.value, sym) });
         if (u.bulkBuy.enabled) {
-            items.push({ label: 'Bulk buy rev share (annual)', value: this.pdfCurrency(u.bulkBuy.annualRevShare, sym) });
-            if (u.bulkBuy.upfrontCost > 0) items.push({ label: '  Upfront purchase cost', value: this.pdfCurrency(u.bulkBuy.upfrontCost, sym) });
+            items.push({ label: 'Bulk buy margin share (annual)', value: this.pdfCurrency(u.bulkBuy.annualMarginShare || 0, sym) });
+            if (u.bulkBuy.upfrontCost > 0) {
+                items.push({ label: '  Upfront cost (' + (u.bulkBuy.numberOfLicenses || 0) + ' licenses)', value: this.pdfCurrency(u.bulkBuy.upfrontCost, sym) });
+                if (u.bulkBuy.roiPercent != null) items.push({ label: '  ROI / Payback', value: u.bulkBuy.roiPercent.toFixed(1) + '% / ' + (u.bulkBuy.paybackMonths ? u.bulkBuy.paybackMonths + 'mo' : 'N/A') });
+            }
         }
         if (u.revenueShare.enabled) items.push({ label: 'Standard rev share (annual)', value: this.pdfCurrency(u.revenueShare.value, sym) });
 
@@ -518,6 +521,258 @@ class PDFExporter {
         doc.setFontSize(6);
         doc.text(pdfText.footerDisclaimer || 'This analysis is for informational purposes only. Actual savings may vary based on transaction volumes and patterns.',
             this.margin, footerY + 3);
+    }
+    /**
+     * Generate Reseller Summary PDF (partner earnings only — NEVER shows margins/fees/costs)
+     */
+    async generateResellerPDF(results, options = {}) {
+        const sym = results.currencySymbol;
+        const upside = results.partnerUpside;
+        if (!upside) throw new Error('No partner upside data');
+
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) throw new Error('jsPDF library not loaded');
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        let tungstenLogo = (typeof CONFIG !== 'undefined' && CONFIG.pdfLogos) ? CONFIG.pdfLogos.tungstenLogo : null;
+        if (!tungstenLogo) tungstenLogo = await this.loadImageAsBase64('assets/tungsten_logo.jpg');
+
+        let y = this.margin;
+
+        // ── HEADER ──
+        if (tungstenLogo) {
+            try { doc.addImage(tungstenLogo, 'JPEG', this.pageWidth - this.margin - 50, y - 4, 50, 14); } catch(e) {}
+        }
+        doc.setFontSize(18);
+        doc.setTextColor(...this.colors.primary);
+        doc.setFont(undefined, 'bold');
+        doc.text('Partner Annual Summary', this.margin, y);
+        doc.setFontSize(10);
+        doc.setTextColor(...this.colors.mediumGray);
+        doc.setFont(undefined, 'normal');
+        doc.text('Tungsten Pay+ Reseller Programme', this.margin, y + 5);
+        doc.setFontSize(8);
+        doc.setTextColor(...this.colors.lightGray);
+        doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+            this.margin, y + 10);
+        y += 10;
+        doc.setDrawColor(...this.colors.veryLightGray);
+        doc.setLineWidth(0.5);
+        doc.line(this.margin, y, this.pageWidth - this.margin, y);
+        y += 6;
+
+        // ── EARNINGS BREAKDOWN TABLE ──
+        doc.setFontSize(11);
+        doc.setTextColor(...this.colors.primary);
+        doc.setFont(undefined, 'bold');
+        doc.text('Earnings Breakdown', this.margin, y);
+        y += 6;
+
+        // Table header
+        doc.setFillColor(0, 40, 84);
+        doc.rect(this.margin, y, this.contentWidth, 7, 'F');
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.text('Mechanism', this.margin + 3, y + 5);
+        doc.text('Annual Earnings', this.margin + this.contentWidth - 40, y + 5);
+        doc.text('Notes', this.margin + this.contentWidth / 2, y + 5);
+        y += 7;
+
+        // Table rows
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        let rowIndex = 0;
+
+        const addRow = (label, value, notes) => {
+            if (rowIndex % 2 === 0) {
+                doc.setFillColor(245, 247, 250);
+                doc.rect(this.margin, y, this.contentWidth, 7, 'F');
+            }
+            doc.setTextColor(...this.colors.darkGray);
+            doc.text(label, this.margin + 3, y + 5);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(...this.colors.primary);
+            doc.text(this.pdfCurrency(value, sym, 0), this.margin + this.contentWidth - 40, y + 5);
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(...this.colors.mediumGray);
+            if (notes) doc.text(notes, this.margin + this.contentWidth / 2, y + 5);
+            y += 7;
+            rowIndex++;
+        };
+
+        if (upside.spiff.enabled) {
+            addRow('SPIFF Bonus', upside.spiff.value, 'One-time per deal');
+        }
+        if (upside.bulkBuy.enabled) {
+            addRow('Bulk Buy Margin Share', upside.bulkBuy.annualMarginShare || 0, 'Annual recurring');
+        }
+        if (upside.revenueShare.enabled) {
+            addRow('Standard Revenue Share', upside.revenueShare.value, 'Annual recurring');
+        }
+
+        // Total row
+        doc.setFillColor(0, 40, 84);
+        doc.rect(this.margin, y, this.contentWidth, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(9);
+        doc.text('TOTAL ANNUAL EARNINGS', this.margin + 3, y + 5.5);
+        doc.text(this.pdfCurrency(upside.totalAnnualUpside, sym, 0), this.margin + this.contentWidth - 40, y + 5.5);
+        y += 12;
+
+        // ── BULK BUY ROI SECTION ──
+        if (upside.bulkBuy.enabled) {
+            doc.setFontSize(11);
+            doc.setTextColor(...this.colors.primary);
+            doc.setFont(undefined, 'bold');
+            doc.text('Bulk Buy Investment Analysis', this.margin, y);
+            y += 6;
+
+            // ROI metrics in tiles
+            const tileW = (this.contentWidth - 9) / 4;
+            const tiles = [
+                { label: 'Upfront Investment', value: this.pdfCurrency(upside.bulkBuy.upfrontCost, sym, 0) },
+                { label: 'Annual Earnings', value: this.pdfCurrency(upside.bulkBuy.annualMarginShare || 0, sym, 0) },
+                { label: 'ROI', value: `${(upside.bulkBuy.roiPercent || 0).toFixed(1)}%` },
+                { label: 'Payback', value: upside.bulkBuy.paybackMonths ? `${upside.bulkBuy.paybackMonths} months` : 'N/A' }
+            ];
+
+            tiles.forEach((tile, i) => {
+                const x = this.margin + i * (tileW + 3);
+                doc.setFillColor(240, 245, 255);
+                doc.roundedRect(x, y, tileW, 16, 2, 2, 'F');
+                doc.setFontSize(7);
+                doc.setTextColor(...this.colors.mediumGray);
+                doc.setFont(undefined, 'normal');
+                doc.text(tile.label, x + tileW / 2, y + 5, { align: 'center' });
+                doc.setFontSize(10);
+                doc.setTextColor(...this.colors.primary);
+                doc.setFont(undefined, 'bold');
+                doc.text(tile.value, x + tileW / 2, y + 12, { align: 'center' });
+            });
+            y += 20;
+
+            // Ramp-up schedule visualization
+            if (upside.bulkBuy.rampUpSchedule && upside.bulkBuy.rampUpSchedule.length > 0) {
+                doc.setFontSize(9);
+                doc.setTextColor(...this.colors.darkGray);
+                doc.setFont(undefined, 'bold');
+                doc.text('Customer Integration Ramp-Up', this.margin, y);
+                y += 5;
+
+                const totalLicenses = upside.bulkBuy.numberOfLicenses || 1;
+                const qW = (this.contentWidth - 9) / 4;
+                upside.bulkBuy.rampUpSchedule.forEach((active, i) => {
+                    const x = this.margin + i * (qW + 3);
+                    const fillPct = Math.min(active / totalLicenses, 1);
+                    // Background
+                    doc.setFillColor(240, 240, 240);
+                    doc.roundedRect(x, y, qW, 12, 2, 2, 'F');
+                    // Fill bar
+                    if (fillPct > 0) {
+                        const fillW = qW * fillPct;
+                        doc.setFillColor(0, 40, 84);
+                        doc.roundedRect(x, y, fillW, 12, 2, 2, 'F');
+                    }
+                    // Label
+                    doc.setFontSize(7);
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont(undefined, 'bold');
+                    if (fillPct > 0.3) {
+                        doc.text(`Q${i + 1}: ${active}/${totalLicenses}`, x + 3, y + 8);
+                    } else {
+                        doc.setTextColor(...this.colors.darkGray);
+                        doc.text(`Q${i + 1}: ${active}/${totalLicenses}`, x + 3, y + 8);
+                    }
+                });
+                y += 16;
+            }
+        }
+
+        // ── EARNINGS BY PAYMENT TYPE ──
+        const breakdown = upside.bulkBuy.enabled ? upside.bulkBuy.breakdown :
+            upside.revenueShare.enabled ? upside.revenueShare.breakdown : null;
+
+        if (breakdown) {
+            doc.setFontSize(11);
+            doc.setTextColor(...this.colors.primary);
+            doc.setFont(undefined, 'bold');
+            doc.text('Earnings by Payment Type', this.margin, y);
+            y += 6;
+
+            // Table header
+            doc.setFillColor(0, 40, 84);
+            doc.rect(this.margin, y, this.contentWidth, 7, 'F');
+            doc.setFontSize(8);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont(undefined, 'bold');
+            doc.text('Payment Type', this.margin + 3, y + 5);
+            doc.text('Your Annual Earnings', this.margin + this.contentWidth - 50, y + 5);
+            y += 7;
+
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'normal');
+            const types = [
+                { label: 'Local Rail Payments', value: breakdown.localRail || 0 },
+                { label: 'Cross-Border Payments', value: breakdown.crossBorder || 0 },
+                { label: 'Foreign Exchange', value: breakdown.fx || 0 }
+            ];
+            const typeTotal = types.reduce((sum, t) => sum + t.value, 0);
+
+            types.forEach((t, i) => {
+                if (i % 2 === 0) {
+                    doc.setFillColor(245, 247, 250);
+                    doc.rect(this.margin, y, this.contentWidth, 7, 'F');
+                }
+                doc.setTextColor(...this.colors.darkGray);
+                doc.text(t.label, this.margin + 3, y + 5);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(...this.colors.primary);
+                doc.text(this.pdfCurrency(t.value, sym, 0), this.margin + this.contentWidth - 50, y + 5);
+                doc.setFont(undefined, 'normal');
+                y += 7;
+            });
+
+            // Total
+            doc.setFillColor(0, 40, 84);
+            doc.rect(this.margin, y, this.contentWidth, 7, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont(undefined, 'bold');
+            doc.text('TOTAL', this.margin + 3, y + 5);
+            doc.text(this.pdfCurrency(typeTotal, sym, 0), this.margin + this.contentWidth - 50, y + 5);
+            y += 12;
+        }
+
+        // ── TOTAL HIGHLIGHT BOX ──
+        doc.setFillColor(240, 245, 255);
+        doc.roundedRect(this.margin, y, this.contentWidth, 20, 3, 3, 'F');
+        doc.setDrawColor(0, 40, 84);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(this.margin, y, this.contentWidth, 20, 3, 3, 'S');
+        doc.setFontSize(10);
+        doc.setTextColor(...this.colors.mediumGray);
+        doc.setFont(undefined, 'normal');
+        doc.text('Total Annual Partner Earnings', this.contentWidth / 2 + this.margin, y + 7, { align: 'center' });
+        doc.setFontSize(16);
+        doc.setTextColor(...this.colors.primary);
+        doc.setFont(undefined, 'bold');
+        doc.text(this.pdfCurrency(upside.totalAnnualUpside, sym, 0), this.contentWidth / 2 + this.margin, y + 16, { align: 'center' });
+
+        // ── FOOTER ──
+        const footerY = this.pageHeight - 8;
+        doc.setDrawColor(...this.colors.veryLightGray);
+        doc.setLineWidth(0.5);
+        doc.line(this.margin, footerY - 4, this.pageWidth - this.margin, footerY - 4);
+        doc.setFontSize(7);
+        doc.setTextColor(...this.colors.lightGray);
+        doc.setFont(undefined, 'normal');
+        doc.text('Tungsten Pay+ Partner Programme - Confidential', this.margin, footerY);
+        doc.setFontSize(6);
+        doc.text('This summary is for partner use only. Actual earnings may vary based on transaction volumes and customer integration timelines.',
+            this.margin, footerY + 3);
+
+        doc.save(`Tungsten_Reseller_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
     }
 }
 

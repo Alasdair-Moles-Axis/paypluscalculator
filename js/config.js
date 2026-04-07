@@ -123,6 +123,21 @@ const CONFIG = {
         fxMargin: 0.35,
         cardRebate: 1.50
     },
+
+    // Default Tungsten Internal Processing Costs (admin-only, CONFIDENTIAL)
+    // Margin = Fee - Cost. Revenue share is based on margin, not fee.
+    defaultTungstenCosts: {
+        directToClient: {
+            localRailCost: 0.05,
+            crossBorderCost: 0.80,
+            fxCostPercent: 0.10
+        },
+        partner: {
+            localRailCost: 0.08,
+            crossBorderCost: 1.00,
+            fxCostPercent: 0.12
+        }
+    },
     
     // UI Labels (configurable for easy updates)
     labels: {
@@ -138,7 +153,13 @@ const CONFIG = {
     // Default Partner Configuration
     defaultPartnerConfig: {
         spiff: { enabled: false, amountPerDeal: 500 },
-        bulkBuy: { enabled: false, upfrontCost: 10000, enhancedRevShare: 20 },
+        bulkBuy: {
+            enabled: false,
+            numberOfLicenses: 10,
+            costPerLicense: 1000,
+            marginSharePercent: 20,
+            rampUpSchedule: [2, 4, 6, 8]
+        },
         revenueShare: { enabled: false, percentage: 10 }
     },
 

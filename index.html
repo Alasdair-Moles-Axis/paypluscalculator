@@ -376,18 +376,49 @@
                                         <span class="mechanism-name">Bulk Buy (Upfront Purchase)</span>
                                     </label>
                                     <div class="mechanism-config hidden" id="bulk-buy-config">
-                                        <p class="section-description" style="margin-bottom: var(--space-3);">Partner buys upfront at a discount and receives an enhanced share of transactional revenue</p>
+                                        <p class="section-description" style="margin-bottom: var(--space-3);">Partner purchases platform licenses upfront and earns margin share as customers integrate</p>
                                         <div class="fee-grid" style="grid-template-columns: repeat(2, 1fr);">
                                             <div class="fee-item">
-                                                <label for="bulk-buy-upfront-cost" class="fee-label">Upfront purchase cost (<span class="ccy-inline">$</span>)</label>
-                                                <div class="input-wrapper">
-                                                    <span class="input-prefix currency-symbol">$</span>
-                                                    <input type="number" id="bulk-buy-upfront-cost" class="fee-input" min="0" step="500" value="10000" />
-                                                </div>
+                                                <label for="bulk-buy-num-licenses" class="fee-label">Number of licenses</label>
+                                                <input type="number" id="bulk-buy-num-licenses" class="fee-input" min="1" max="100" step="1" value="10" />
                                             </div>
                                             <div class="fee-item">
-                                                <label for="bulk-buy-rev-share" class="fee-label">Enhanced revenue share (%)</label>
-                                                <input type="number" id="bulk-buy-rev-share" class="fee-input" min="0" max="100" step="0.5" value="20" />
+                                                <label for="bulk-buy-cost-per-license" class="fee-label">Cost per license (<span class="ccy-inline">$</span>)</label>
+                                                <div class="input-wrapper">
+                                                    <span class="input-prefix currency-symbol">$</span>
+                                                    <input type="number" id="bulk-buy-cost-per-license" class="fee-input" min="0" step="100" value="1000" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="fee-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 8px;">
+                                            <div class="fee-item">
+                                                <label for="bulk-buy-margin-share" class="fee-label">Margin share (%)</label>
+                                                <input type="number" id="bulk-buy-margin-share" class="fee-input" min="0" max="100" step="0.5" value="20" />
+                                            </div>
+                                            <div class="fee-item">
+                                                <label class="fee-label">Total upfront cost</label>
+                                                <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="bulk-buy-total-cost">$10,000</span></div>
+                                            </div>
+                                        </div>
+                                        <div style="margin-top: 8px;">
+                                            <label class="fee-label">Customer ramp-up (licenses active per quarter)</label>
+                                            <div class="fee-grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 4px;">
+                                                <div class="fee-item">
+                                                    <label class="fee-label" style="font-size: 11px;">Q1</label>
+                                                    <input type="number" id="ramp-q1" class="fee-input" min="0" step="1" value="2" />
+                                                </div>
+                                                <div class="fee-item">
+                                                    <label class="fee-label" style="font-size: 11px;">Q2</label>
+                                                    <input type="number" id="ramp-q2" class="fee-input" min="0" step="1" value="4" />
+                                                </div>
+                                                <div class="fee-item">
+                                                    <label class="fee-label" style="font-size: 11px;">Q3</label>
+                                                    <input type="number" id="ramp-q3" class="fee-input" min="0" step="1" value="6" />
+                                                </div>
+                                                <div class="fee-item">
+                                                    <label class="fee-label" style="font-size: 11px;">Q4</label>
+                                                    <input type="number" id="ramp-q4" class="fee-input" min="0" step="1" value="8" />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -531,12 +562,96 @@
                                     />
                                 </div>
                             </div>
+
+                            <!-- Tungsten Margin Configuration (Admin Only - CONFIDENTIAL) -->
+                            <hr class="settings-divider" />
+                            <h4 class="partner-config-title" style="color: #EF4444;">Margin Configuration (Confidential)</h4>
+                            <p class="section-description" style="color: #EF4444; font-weight: 600;">These values must never be visible to partners or clients</p>
+
+                            <!-- Direct-to-Client Costs -->
+                            <div class="margin-config-group">
+                                <h5 class="mechanism-name">Direct-to-Client Processing Costs</h5>
+                                <div class="fee-grid" style="grid-template-columns: repeat(3, 1fr);">
+                                    <div class="fee-item">
+                                        <label for="dtc-local-cost" class="fee-label">Local rail cost (<span class="ccy-inline">$</span>/txn)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix currency-symbol">$</span>
+                                            <input type="number" id="dtc-local-cost" class="fee-input" min="0" step="0.01" value="0.05" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="dtc-crossborder-cost" class="fee-label">X-border cost (<span class="ccy-inline">$</span>/txn)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix currency-symbol">$</span>
+                                            <input type="number" id="dtc-crossborder-cost" class="fee-input" min="0" step="0.01" value="0.80" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="dtc-fx-cost" class="fee-label">FX processing cost (%)</label>
+                                        <input type="number" id="dtc-fx-cost" class="fee-input" min="0" max="100" step="0.01" value="0.10" />
+                                    </div>
+                                </div>
+                                <div class="fee-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 8px;">
+                                    <div class="fee-item">
+                                        <label class="fee-label">Local margin/txn</label>
+                                        <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="dtc-local-margin">$0.45</span></div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label class="fee-label">X-border margin/txn</label>
+                                        <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="dtc-crossborder-margin">$1.20</span></div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label class="fee-label">FX margin spread</label>
+                                        <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="dtc-fx-margin-display">0.25%</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Partner Channel Costs -->
+                            <div class="margin-config-group" style="margin-top: 12px;">
+                                <h5 class="mechanism-name">Partner Channel Processing Costs</h5>
+                                <div class="fee-grid" style="grid-template-columns: repeat(3, 1fr);">
+                                    <div class="fee-item">
+                                        <label for="partner-local-cost" class="fee-label">Local rail cost (<span class="ccy-inline">$</span>/txn)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix currency-symbol">$</span>
+                                            <input type="number" id="partner-local-cost" class="fee-input" min="0" step="0.01" value="0.08" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="partner-crossborder-cost" class="fee-label">X-border cost (<span class="ccy-inline">$</span>/txn)</label>
+                                        <div class="input-wrapper">
+                                            <span class="input-prefix currency-symbol">$</span>
+                                            <input type="number" id="partner-crossborder-cost" class="fee-input" min="0" step="0.01" value="1.00" />
+                                        </div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label for="partner-fx-cost" class="fee-label">FX processing cost (%)</label>
+                                        <input type="number" id="partner-fx-cost" class="fee-input" min="0" max="100" step="0.01" value="0.12" />
+                                    </div>
+                                </div>
+                                <div class="fee-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 8px;">
+                                    <div class="fee-item">
+                                        <label class="fee-label">Local margin/txn</label>
+                                        <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="partner-local-margin">$0.42</span></div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label class="fee-label">X-border margin/txn</label>
+                                        <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="partner-crossborder-margin">$1.00</span></div>
+                                    </div>
+                                    <div class="fee-item">
+                                        <label class="fee-label">FX margin spread</label>
+                                        <div class="calculated-field" style="margin: 0; height: 40px;"><span class="calculated-value" id="partner-fx-margin-display">0.23%</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
-                    
+
                 </div>
             </div>
-            
+
             <!-- Results Panel -->
             <div class="tab-panel" role="tabpanel" id="results-panel" aria-labelledby="results-tab">
                 <div class="panel-content">
@@ -625,9 +740,11 @@
                                 <div class="card-value" id="partner-spiff-value">$0</div>
                             </div>
                             <div class="summary-card savings secondary-card" id="bulk-buy-card" style="display: none;">
-                                <div class="card-label">Bulk Buy Revenue Share (Annual)</div>
+                                <div class="card-label">Bulk Buy Margin Share (Annual)</div>
                                 <div class="card-value" id="partner-bulk-value">$0</div>
                                 <div class="card-sublabel" id="partner-bulk-upfront" style="font-size: 11px; color: var(--gray-500); margin-top: 4px;"></div>
+                                <div class="card-sublabel" id="partner-bulk-roi" style="font-size: 11px; color: var(--tungsten-primary); margin-top: 2px;"></div>
+                                <div class="card-sublabel" id="partner-bulk-payback" style="font-size: 11px; color: var(--gray-500); margin-top: 2px;"></div>
                             </div>
                             <div class="summary-card savings secondary-card" id="revenue-share-card" style="display: none;">
                                 <div class="card-label">Revenue Share (Annual)</div>
@@ -640,6 +757,9 @@
                                 <div class="card-value" id="partner-total-upside">$0</div>
                             </div>
                         </div>
+                        <button class="action-button primary" id="export-reseller-pdf-btn" style="margin-top: 12px; width: 100%;">
+                            <span class="button-label">Export Reseller Summary PDF</span>
+                        </button>
                     </div>
 
                     <!-- Cumulative ROI Timeline (shown in direct-to-client mode) -->

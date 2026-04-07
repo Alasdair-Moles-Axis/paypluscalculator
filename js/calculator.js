@@ -52,6 +52,21 @@ class ROICalculator {
                     fxMargin: 0.60,
                     cardRebate: 1.00
                 }
+            },
+            // Internal processing costs (admin-only, for margin calculation)
+            costs: {
+                tungsten: {
+                    directToClient: {
+                        localRailCost: 0.05,
+                        crossBorderCost: 0.80,
+                        fxCostPercent: 0.10
+                    },
+                    partner: {
+                        localRailCost: 0.08,
+                        crossBorderCost: 1.00,
+                        fxCostPercent: 0.12
+                    }
+                }
             }
         };
     }
@@ -94,25 +109,87 @@ class ROICalculator {
     }
 
     /**
+     * Update internal processing cost
+     * @param {string} channel - 'directToClient' or 'partner'
+     * @param {string} field - cost field name
+     * @param {number} value - new value
+     */
+    updateCost(channel, field, value) {
+        if (this.data.costs.tungsten[channel]) {
+            this.data.costs.tungsten[channel][field] = parseFloat(value) || 0;
+        }
+    }
+
+    /**
+     * Calculate Tungsten's margin (fee minus internal cost) per payment type
+     * @param {string} channel - 'directToClient' or 'partner'
+     * @returns {Object} Per-type and total margin
+     */
+    calculateTungstenMargin(channel = 'directToClient') {
+        const breakdown = this.calculatePaymentBreakdown();
+        const fxVolume = this.calculateFXVolume();
+        const fees = this.data.fees.tungsten;
+        const costs = this.data.costs.tungsten[channel];
+
+        // Local rail margin = (fee - cost) * transaction count
+        const localRailRevenue = breakdown.rails.local.count * fees.localRailFee;
+        const localRailCost = breakdown.rails.local.count * costs.localRailCost;
+        const localRailMargin = localRailRevenue - localRailCost;
+
+        // Cross-border margin = (fee - cost) * transaction count
+        const crossBorderRevenue = breakdown.rails.crossBorder.count * fees.crossBorderFee;
+        const crossBorderCost = breakdown.rails.crossBorder.count * costs.crossBorderCost;
+        const crossBorderMargin = crossBorderRevenue - crossBorderCost;
+
+        // FX margin = (fxMargin% - fxCost%) * fxVolume
+        const fxRevenue = fxVolume * (fees.fxMargin / 100);
+        const fxCost = fxVolume * (costs.fxCostPercent / 100);
+        const fxMargin = fxRevenue - fxCost;
+
+        const totalMargin = localRailMargin + crossBorderMargin + fxMargin;
+
+        return {
+            localRail: { revenue: localRailRevenue, cost: localRailCost, margin: localRailMargin },
+            crossBorder: { revenue: crossBorderRevenue, cost: crossBorderCost, margin: crossBorderMargin },
+            fx: { revenue: fxRevenue, cost: fxCost, margin: fxMargin },
+            totalMargin,
+            // Per-unit margins (for admin display)
+            perUnit: {
+                localRailMargin: fees.localRailFee - costs.localRailCost,
+                crossBorderMargin: fees.crossBorderFee - costs.crossBorderCost,
+                fxMarginPercent: fees.fxMargin - costs.fxCostPercent
+            }
+        };
+    }
+
+    /**
      * Change currency and convert all values
      */
     changeCurrency(newCurrency) {
         const oldCurrency = this.data.customerInfo.currency;
         if (oldCurrency === newCurrency) return;
-        
+
         const oldRate = this.exchangeRates[oldCurrency];
         const newRate = this.exchangeRates[newCurrency];
         const conversionFactor = newRate / oldRate;
-        
+
         // Convert customer values and round to 2 decimals
         this.data.customerInfo.totalPaymentValue = Math.round(this.data.customerInfo.totalPaymentValue * conversionFactor * 100) / 100;
-        
-        // Convert fees and round to 2 decimals
+
+        // Convert fees (flat amounts only, not percentages)
         this.data.fees.tungsten.localRailFee = Math.round(this.data.fees.tungsten.localRailFee * conversionFactor * 100) / 100;
         this.data.fees.tungsten.crossBorderFee = Math.round(this.data.fees.tungsten.crossBorderFee * conversionFactor * 100) / 100;
         this.data.fees.currentProvider.localRailFee = Math.round(this.data.fees.currentProvider.localRailFee * conversionFactor * 100) / 100;
         this.data.fees.currentProvider.crossBorderFee = Math.round(this.data.fees.currentProvider.crossBorderFee * conversionFactor * 100) / 100;
-        
+
+        // Convert internal costs (flat amounts only, not percentages)
+        for (const channel of ['directToClient', 'partner']) {
+            const costs = this.data.costs.tungsten[channel];
+            costs.localRailCost = Math.round(costs.localRailCost * conversionFactor * 100) / 100;
+            costs.crossBorderCost = Math.round(costs.crossBorderCost * conversionFactor * 100) / 100;
+            // fxCostPercent stays as-is (it's a percentage)
+        }
+
         // Update currency
         this.data.customerInfo.currency = newCurrency;
     }
@@ -366,15 +443,21 @@ class ROICalculator {
     }
 
     /**
-     * Calculate partner upside (aggregate only - never exposes individual fees)
+     * Calculate partner upside based on Tungsten's MARGIN (not total fee)
+     * Revenue share = percentage of margin, not percentage of fee charged to customer
      */
     calculatePartnerUpside(partnerConfig) {
-        if (!partnerConfig) return { spiff: { enabled: false, value: 0 }, bulkBuy: { enabled: false, annualRevShare: 0, upfrontCost: 0 }, revenueShare: { enabled: false, value: 0 }, totalAnnualUpside: 0 };
+        if (!partnerConfig) return {
+            spiff: { enabled: false, value: 0 },
+            bulkBuy: { enabled: false, annualMarginShare: 0, upfrontCost: 0 },
+            revenueShare: { enabled: false, value: 0 },
+            totalAnnualUpside: 0
+        };
 
-        const tungstenCosts = this.calculateProviderCosts('tungsten');
+        const margin = this.calculateTungstenMargin('partner');
         const result = {
             spiff: { enabled: false, value: 0 },
-            bulkBuy: { enabled: false, annualRevShare: 0, upfrontCost: 0 },
+            bulkBuy: { enabled: false, annualMarginShare: 0, upfrontCost: 0, numberOfLicenses: 0 },
             revenueShare: { enabled: false, value: 0 },
             totalAnnualUpside: 0
         };
@@ -387,29 +470,68 @@ class ROICalculator {
             };
         }
 
-        // Bulk Buy: partner pays upfront, gets enhanced revenue share
+        // Bulk Buy: partner purchases licenses upfront, earns margin share with ramp-up
         if (partnerConfig.bulkBuy && partnerConfig.bulkBuy.enabled) {
-            const upfrontCost = partnerConfig.bulkBuy.upfrontCost || 0;
-            const enhancedRevSharePct = partnerConfig.bulkBuy.enhancedRevShare || 0;
-            const annualRevShare = tungstenCosts.total * (enhancedRevSharePct / 100);
+            const licenses = partnerConfig.bulkBuy.numberOfLicenses || 0;
+            const costPerLicense = partnerConfig.bulkBuy.costPerLicense || 0;
+            const upfrontCost = licenses * costPerLicense;
+            const marginSharePct = partnerConfig.bulkBuy.marginSharePercent || 0;
+            const rampSchedule = partnerConfig.bulkBuy.rampUpSchedule || [licenses];
+
+            // Calculate utilization: average active licenses across 4 quarters / total licenses
+            const quarters = rampSchedule.slice(0, 4);
+            // Clamp each quarter to max licenses
+            const clampedQuarters = quarters.map(q => Math.min(q, licenses));
+            const avgActive = clampedQuarters.length > 0
+                ? clampedQuarters.reduce((a, b) => a + b, 0) / clampedQuarters.length
+                : 0;
+            const utilizationRate = licenses > 0 ? avgActive / licenses : 0;
+
+            // Annual margin share weighted by utilization
+            const annualMarginShare = margin.totalMargin * (marginSharePct / 100) * utilizationRate;
+
+            // ROI and payback
+            const roiPercent = upfrontCost > 0 ? ((annualMarginShare / upfrontCost) * 100) : 0;
+            const paybackMonths = annualMarginShare > 0 ? Math.ceil(upfrontCost / (annualMarginShare / 12)) : null;
+
             result.bulkBuy = {
                 enabled: true,
-                annualRevShare: annualRevShare,
-                upfrontCost: upfrontCost
+                numberOfLicenses: licenses,
+                costPerLicense: costPerLicense,
+                upfrontCost: upfrontCost,
+                annualMarginShare: annualMarginShare,
+                avgActiveLicenses: avgActive,
+                utilizationRate: utilizationRate,
+                roiPercent: roiPercent,
+                paybackMonths: paybackMonths,
+                rampUpSchedule: clampedQuarters,
+                // Per-type breakdown (for reseller PDF, shows earnings not margins)
+                breakdown: {
+                    localRail: margin.localRail.margin * (marginSharePct / 100) * utilizationRate,
+                    crossBorder: margin.crossBorder.margin * (marginSharePct / 100) * utilizationRate,
+                    fx: margin.fx.margin * (marginSharePct / 100) * utilizationRate
+                }
             };
         }
 
-        // Standard Revenue Share (no upfront cost)
+        // Standard Revenue Share: percentage of Tungsten's margin (no upfront cost)
         if (partnerConfig.revenueShare && partnerConfig.revenueShare.enabled) {
+            const pct = partnerConfig.revenueShare.percentage || 0;
             result.revenueShare = {
                 enabled: true,
-                value: tungstenCosts.total * (partnerConfig.revenueShare.percentage / 100)
+                value: margin.totalMargin * (pct / 100),
+                // Per-type breakdown (for reseller PDF)
+                breakdown: {
+                    localRail: margin.localRail.margin * (pct / 100),
+                    crossBorder: margin.crossBorder.margin * (pct / 100),
+                    fx: margin.fx.margin * (pct / 100)
+                }
             };
         }
 
-        // Total annual upside = bulk buy annual rev share + standard rev share
+        // Total annual upside = bulk buy margin share + standard rev share
         // (SPIFF is one-time, shown separately)
-        result.totalAnnualUpside = result.bulkBuy.annualRevShare + result.revenueShare.value;
+        result.totalAnnualUpside = (result.bulkBuy.annualMarginShare || 0) + (result.revenueShare.value || 0);
 
         return result;
     }
@@ -452,6 +574,13 @@ class ROICalculator {
         // Optional: Include partner upside data
         if (options.includePartnerUpside && options.partnerConfig) {
             results.partnerUpside = this.calculatePartnerUpside(options.partnerConfig);
+            // Include margin details for admin display (NEVER for partner-facing output)
+            if (options.includeMarginDetails) {
+                results.marginDetails = {
+                    directToClient: this.calculateTungstenMargin('directToClient'),
+                    partner: this.calculateTungstenMargin('partner')
+                };
+            }
         }
 
         return results;

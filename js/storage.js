@@ -394,7 +394,7 @@ class StorageManager {
             ? JSON.parse(JSON.stringify(CONFIG.defaultPartnerConfig))
             : {
                 spiff: { enabled: false, amountPerDeal: 500 },
-                bulkBuy: { enabled: false, upfrontCost: 10000, enhancedRevShare: 20 },
+                bulkBuy: { enabled: false, numberOfLicenses: 10, costPerLicense: 1000, marginSharePercent: 20, rampUpSchedule: [2, 4, 6, 8] },
                 revenueShare: { enabled: false, percentage: 10 }
             };
     }
@@ -408,6 +408,37 @@ class StorageManager {
             return true;
         } catch (e) {
             console.error('Error saving partner config:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Get Tungsten internal processing costs (for margin calculation)
+     */
+    getMarginCosts() {
+        try {
+            const data = localStorage.getItem('marginCosts');
+            if (data) return JSON.parse(data);
+        } catch (e) {
+            console.error('Error reading margin costs:', e);
+        }
+        return (typeof CONFIG !== 'undefined' && CONFIG.defaultTungstenCosts)
+            ? JSON.parse(JSON.stringify(CONFIG.defaultTungstenCosts))
+            : {
+                directToClient: { localRailCost: 0.05, crossBorderCost: 0.80, fxCostPercent: 0.10 },
+                partner: { localRailCost: 0.08, crossBorderCost: 1.00, fxCostPercent: 0.12 }
+            };
+    }
+
+    /**
+     * Set Tungsten internal processing costs
+     */
+    setMarginCosts(costs) {
+        try {
+            localStorage.setItem('marginCosts', JSON.stringify(costs));
+            return true;
+        } catch (e) {
+            console.error('Error saving margin costs:', e);
             return false;
         }
     }
