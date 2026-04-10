@@ -1166,8 +1166,8 @@ class TungstenROIApp {
                 this.hideLoading();
                 this.isCalculating = false;
             } catch (error) {
-                console.error('Calculation error:', error);
-                this.showToast('Error performing calculation', 'error');
+                console.error('Calculation error:', error.message, error.stack);
+                this.showToast('Error: ' + error.message, 'error');
                 this.hideLoading();
                 this.isCalculating = false;
             }

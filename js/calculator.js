@@ -115,9 +115,10 @@ class ROICalculator {
      * @param {number} value - new value
      */
     updateCost(channel, field, value) {
-        if (this.data.costs.tungsten[channel]) {
-            this.data.costs.tungsten[channel][field] = parseFloat(value) || 0;
-        }
+        if (!this.data.costs) this.data.costs = this.getDefaultData().costs;
+        if (!this.data.costs.tungsten) this.data.costs.tungsten = this.getDefaultData().costs.tungsten;
+        if (!this.data.costs.tungsten[channel]) this.data.costs.tungsten[channel] = this.getDefaultData().costs.tungsten[channel];
+        this.data.costs.tungsten[channel][field] = parseFloat(value) || 0;
     }
 
     /**
@@ -129,7 +130,8 @@ class ROICalculator {
         const breakdown = this.calculatePaymentBreakdown();
         const fxVolume = this.calculateFXVolume();
         const fees = this.data.fees.tungsten;
-        const costs = this.data.costs.tungsten[channel];
+        const defaults = this.getDefaultData().costs.tungsten[channel];
+        const costs = (this.data.costs && this.data.costs.tungsten && this.data.costs.tungsten[channel]) || defaults;
 
         // Local rail margin = (fee - cost) * transaction count
         const localRailRevenue = breakdown.rails.local.count * fees.localRailFee;
@@ -613,10 +615,21 @@ class ROICalculator {
     }
 
     /**
-     * Import data
+     * Import data (merges with defaults to handle schema migrations)
      */
     importData(data) {
-        this.data = JSON.parse(JSON.stringify(data));
+        const imported = JSON.parse(JSON.stringify(data));
+        const defaults = this.getDefaultData();
+        // Ensure costs structure exists (added in margin update)
+        if (!imported.costs) {
+            imported.costs = defaults.costs;
+        } else if (!imported.costs.tungsten) {
+            imported.costs.tungsten = defaults.costs.tungsten;
+        } else {
+            if (!imported.costs.tungsten.directToClient) imported.costs.tungsten.directToClient = defaults.costs.tungsten.directToClient;
+            if (!imported.costs.tungsten.partner) imported.costs.tungsten.partner = defaults.costs.tungsten.partner;
+        }
+        this.data = imported;
     }
 
     /**
